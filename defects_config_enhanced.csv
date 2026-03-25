@@ -1,0 +1,62 @@
+defect,category,defect_family,classification_options,active,test_dependent,vision_eligible
+2000 - Weak Seal,Seal Integrity,Seal Integrity,Critical|Class I|Class II|Class III,1,Yes,No
+2001 - Narrow Seal Margin,Seal Integrity,Seal Margin / Channel,Critical|Class I|Class II|Class III,1,No,Yes
+2002 - Excessive Pressure,Surface / Mechanical,Mechanical / Surface,Critical|Class I|Class II|Class III,1,No,Yes
+2003 - Hole in the Cavity,Seal Integrity,Cavity,Critical|Class I|Class II|Class III,1,Yes,No
+2004A - Seal into Cavity,Seal Integrity,Cavity,Critical|Class I|Class II|Class III,1,No,Yes
+2004B - Crushed Cavity / Bottle-Capping,Surface / Mechanical,Cavity,Critical|Class I|Class II|Class III,1,No,Yes
+2005 - Batch Print in the Cavity,Labeling & Print,Cavity,Critical|Class I|Class II|Class III,1,No,Yes
+2006 - Wrinkles / Pleats,Seal Integrity,Seal Margin / Channel,Critical|Class I|Class II|Class III,1,Yes,No
+2007 - Suture in the Seal,Entrapment / Foreign Material,Entrapment / Foreign,Critical|Class I|Class II|Class III,1,No,Yes
+2008 - Needle in the Seal,Entrapment / Foreign Material,Entrapment / Foreign,Critical|Class I|Class II|Class III,1,No,Yes
+2009 - Device / Folder / Collar / Reel / Tray in the Seal,Entrapment / Foreign Material,Entrapment / Foreign,Critical|Class I|Class II|Class III,1,No,Yes
+2010 - No Top Tab,Converting / Die-cut / Web,Converting,Critical|Class I|Class II|Class III,1,No,Yes
+2011 - Defective Second Seal Ribs,Seal Integrity,Seal Integrity,Critical|Class I|Class II|Class III,1,No,Yes
+2012 - Label Position Incorrect,Labeling & Print,Label / Print,Critical|Class I|Class II|Class III,1,No,Yes
+2013 - Label Print Cut Off,Labeling & Print,Label / Print,Critical|Class I|Class II|Class III,1,No,Yes
+2014 - Rough Edges,Converting / Die-cut / Web,Converting,Critical|Class I|Class II|Class III,1,No,Yes
+2015 - Improper Die Cut,Converting / Die-cut / Web,Converting,Critical|Class I|Class II|Class III,1,No,Yes
+2016 - Adhering Trim,Converting / Die-cut / Web,Converting,Critical|Class I|Class II|Class III,1,No,Yes
+2017 - Double Label or Bottom Stock,Seal Integrity,Label / Print,Critical|Class I|Class II|Class III,1,No,Yes
+2018 - Folded Label,Seal Integrity,Label / Print,Critical|Class I|Class II|Class III,1,No,Yes
+2019 - Friction Coating Voids,Seal Integrity,Coating / Delamination,Critical|Class I|Class II|Class III,1,No,Yes
+2020 - Delamination,Seal Integrity,Coating / Delamination,Critical|Class I|Class II|Class III,1,No,Yes
+2021 - Copy Off Register,Labeling & Print,Label / Print,Critical|Class I|Class II|Class III,1,No,Yes
+2022 - Wrong / Missing / Illegible Expiry or DOM,Labeling & Print,Label / Print,Critical|Class I|Class II|Class III,1,Yes,No
+2023 - Smeared Labels,Labeling & Print,Label / Print,Critical|Class I|Class II|Class III,1,No,Yes
+2024 - Incorrect Tubing Fluid Level,Functional / Fill,Functional / Fill,Critical|Class I|Class II|Class III,1,Yes,No
+2025 - Open Seal,Seal Integrity,Open Seal,Critical|Class I|Class II|Class III,1,No,Yes
+2026 - Foreign Matter,Entrapment / Foreign Material,Entrapment / Foreign,Critical|Class I|Class II|Class III,1,No,Yes
+2027 - Heat Damage to Suture,Surface / Mechanical,Mechanical / Surface,Critical|Class I|Class II|Class III,1,No,Yes
+2028 - Label or Notch Orientation Incorrect,Orientation / Placement,Label / Print,Critical|Class I|Class II|Class III,1,No,Yes
+2029 - Folder Orientation Incorrect,Orientation / Placement,Entrapment / Foreign,Critical|Class I|Class II|Class III,1,No,Yes
+2030 - Sleeves Not Sticking,Functional / Fill,Functional / Fill,Critical|Class I|Class II|Class III,1,Yes,No
+2031 - Splice,Converting / Die-cut / Web,Converting,Critical|Class I|Class II|Class III,1,No,Yes
+2032 - Nonconforming Vent,Seal Integrity,Vent,Critical|Class I|Class II|Class III,1,No,Yes
+2033 - Blisters in Seal,Surface / Mechanical,Mechanical / Surface,Critical|Class I|Class II|Class III,1,No,Yes
+2035 - Bar Code on Foil Package,Labeling & Print,Label / Print,Critical|Class I|Class II|Class III,1,No,Yes
+2036 - Incorrect Flap Length,Converting / Die-cut / Web,Converting,Critical|Class I|Class II|Class III,1,No,Yes
+2037 - Channels,Seal Integrity,Seal Margin / Channel,Critical|Class I|Class II|Class III,1,Yes,No
+2038 - Fiber Tears,Seal Integrity,Seal Margin / Channel,Critical|Class I|Class II|Class III,1,No,Yes
+2039 - Skip in Heat Seal Coating,Seal Integrity,Coating / Delamination,Critical|Class I|Class II|Class III,1,No,Yes
+2040 - Tyvek in the Seal,Entrapment / Foreign Material,Tyvek Window,Critical|Class I|Class II|Class III,1,No,Yes
+2041 - Heat Seal Coating Delamination,Seal Integrity,Coating / Delamination,Critical|Class I|Class II|Class III,1,No,Yes
+2042 - Incorrect Wave on Terminal Sterilization Label,Labeling & Print,Label / Print,Critical|Class I|Class II|Class III,1,No,Yes
+2043 - Incorrect Copy on Terminal Sterilization Label,Labeling & Print,Label / Print,Critical|Class I|Class II|Class III,1,No,Yes
+2044 - Narrow Seal Margin (Tyvek Window),Seal Integrity,Tyvek Window,Critical|Class I|Class II|Class III,1,No,Yes
+2045 - Multiple Layers of Tyvek,Seal Integrity,Tyvek Window,Critical|Class I|Class II|Class III,1,No,Yes
+2046 - Channel in Tyvek Window Seal,Seal Integrity,Tyvek Window,Critical|Class I|Class II|Class III,1,No,Yes
+2047 - Open Tyvek Vent Seal,Seal Integrity,Tyvek Window,Critical|Class I|Class II|Class III,1,No,Yes
+2048 - No Window in Terminal Sterilization Label Foil,Converting / Die-cut / Web,Tyvek Window,Critical|Class I|Class II|Class III,1,No,Yes
+2049 - Puncture in Tyvek Over Foil Window,Seal Integrity,Tyvek Window,Critical|Class I|Class II|Class III,1,No,Yes
+2050 - Heat Damage to Tyvek Over Foil Window,Seal Integrity,Tyvek Window,Critical|Class I|Class II|Class III,1,No,Yes
+2051 - Spotty Seal (Tyvek),Seal Integrity,Tyvek Window,Critical|Class I|Class II|Class III,1,No,Yes
+2052 - Void Tyvek Seal,Seal Integrity,Tyvek Window,Critical|Class I|Class II|Class III,1,No,Yes
+2053 - Header Not Removed,Converting / Die-cut / Web,Converting,Critical|Class I|Class II|Class III,1,No,Yes
+2054 - Baggy Pouches,Surface / Mechanical,Mechanical / Surface,Critical|Class I|Class II|Class III,1,No,Yes
+2055 - Soft Wrinkles,Surface / Mechanical,Seal Margin / Channel,Critical|Class I|Class II|Class III,1,No,Yes
+2056 - Spotty Seal (Foil),Seal Integrity,Coating / Delamination,Critical|Class I|Class II|Class III,1,No,Yes
+2057 - Leakers,Functional / Fill,Functional / Fill,Critical|Class I|Class II|Class III,1,Yes,No
+2058 - Incorrect Flute Margin,Converting / Die-cut / Web,Converting,Critical|Class I|Class II|Class III,1,No,Yes
+2059 - Tab to Flute Measurement,Converting / Die-cut / Web,Converting,Critical|Class I|Class II|Class III,1,No,Yes
+2060 - Foil Pouch Damage,Surface / Mechanical,Mechanical / Surface,Critical|Class I|Class II|Class III,1,No,Yes
