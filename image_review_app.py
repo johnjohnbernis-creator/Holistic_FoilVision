@@ -33,6 +33,11 @@ except Exception:
 st.set_page_config(page_title="Holistic FoilVision", layout="wide")
 ROOT_FOLDER = r"C:\Holistic_Foil" # MUST contain subfolders with images
 SUPPORTED_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
+
+# ✅ ADDITIVE ONLY: External image folder support
+USE_EXTERNAL_FOLDER = True
+EXTERNAL_IMAGE_FOLDER = r"C:\Holistic_Foil\Set_1"
+
 BASE_DIR = os.path.dirname(__file__)
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 SNAPSHOT_DIR = os.path.join(OUTPUT_DIR, "snapshots")
@@ -869,3 +874,22 @@ with st.sidebar.expander("📄 Reports", expanded=False):
         st.caption("ZIP includes MASTER CSV + snapshot PNGs (for BAD decisions with ROI).")
     else:
         st.caption("No master results yet. Save at least one review.")
+
+# ✅ ADDITIVE ONLY: External folder image loader
+def list_images_external(folder_path: str):
+    rels = []
+    if not os.path.isdir(folder_path):
+        return rels
+    for root, _, files in os.walk(folder_path):
+        for fn in files:
+            if fn.lower().endswith(SUPPORTED_EXT):
+                full = os.path.join(root, fn)
+                rels.append(os.path.relpath(full, folder_path))
+    return sorted(rels)
+
+
+# ✅ ADDITIVE ONLY: External folder override (no existing logic removed)
+if USE_EXTERNAL_FOLDER:
+    selected_folder = os.path.basename(EXTERNAL_IMAGE_FOLDER)
+    folder_path = EXTERNAL_IMAGE_FOLDER
+    images = list_images_external(EXTERNAL_IMAGE_FOLDER)
