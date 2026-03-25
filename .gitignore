@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Streamlit
+.streamlit/
+
+# Runtime data (DO NOT COMMIT)
+images/
+output/
+snapshots/
+results/
+
+# OS
+.DS_Store
+Thumbs.db
