@@ -1,3 +1,23 @@
+# ================================
+# SESSION STATE GUARANTEE
+# ================================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "operator" not in st.session_state:
+    st.session_state.operator = None
+
+if "current_folder" not in st.session_state:
+    st.session_state.current_folder = None
+
+if "image_index" not in st.session_state:
+    st.session_state.image_index = 0
+
+if "results" not in st.session_state:
+    st.session_state.results = []
+
+if "resume_loaded" not in st.session_state:
+    st.session_state.resume_loaded = False
 import os
 import io
 import zipfile
