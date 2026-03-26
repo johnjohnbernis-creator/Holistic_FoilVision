@@ -9,6 +9,20 @@ from collections import Counter
 import pandas as pd
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
+# ================================
+# REQUIRED HELPER (MUST BE AT TOP)
+# ================================
+def list_images_external(folder_path):
+    if not folder_path or not os.path.isdir(folder_path):
+        return []
+
+    images = []
+    for root, _, files in os.walk(folder_path):
+        for f in files:
+            if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
+                images.append(os.path.join(root, f))
+
+    return sorted(images)
 
 # Optional add-ons (app runs without them)
 try:
