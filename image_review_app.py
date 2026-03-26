@@ -1,27 +1,28 @@
-12 # REQUIRED HELPER (MUST BE AT TOP)
-13 # ================================
-14 def list_images_external(folder_path):
-15     if not folder_path or not os.path.isdir(folder_path):
-16         return []
-17
-18     images = []
-19     for root, _, files in os.walk(folder_path):
-20         for f in files:
-21             if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
-22                 images.append(os.path.join(root, f))
-23
-24     return sorted(images)
-    rels = []
-    if not os.path.isdir(folder_path):
-        return rels
-    for root, _, files in os.walk(folder_path):
-        for fn in files:
-            if fn.lower().endswith(SUPPORTED_EXT):
-                full = os.path.join(root, fn)
-                rels.append(os.path.relpath(full, folder_path))
-    rels.sort()
-    return rels
+import os
+import io
+import zipfile
+import hashlib
+import hmac
+import datetime as dt
+import re
+from collections import Counter
 
+import pandas as pd
+import streamlit as st
+from PIL import Image, ImageDraw, ImageFont
+
+
+def list_images_external(folder_path):
+    if not folder_path or not os.path.isdir(folder_path):
+        return []
+
+    images = []
+    for root, _, files in os.walk(folder_path):
+        for f in files:
+            if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
+                images.append(os.path.join(root, f))
+
+    return sorted(images)
 def summarize_extensions(folder_path: str):
     exts = []
     total = 0
