@@ -850,7 +850,6 @@ if not src.empty:
         st.info("No BAD defects recorded yet (Pareto will appear after at least one BAD save).")
 else:
     st.info("No saved results yet.")
-
 # -----------------------
 # REPORT DOWNLOAD
 # -----------------------
