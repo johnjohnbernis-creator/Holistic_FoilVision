@@ -1,0 +1,8 @@
+streamlit
+pandas
+Pillow
+altair
+streamlit-drawable-canvas
+streamlit-image-zoom
+streamlit-hotkeys
+pyyaml
