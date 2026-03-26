@@ -339,8 +339,8 @@ def load_operator_config(path):
     except Exception as e:
         st.error(f"Failed to load operator config: {e}")
         return pd.DataFrame()
-        # ================================
-# SAFETY FIX: ensure operator loader exists at runtime
+# ================================
+# RUNTIME GUARD: ensure operator loader exists
 # ================================
 if "load_operator_config" not in globals():
     def load_operator_config(path):
@@ -350,8 +350,8 @@ if "load_operator_config" not in globals():
             return pd.read_csv(path)
         except Exception:
             return pd.DataFrame()
-op_cfg = load_operator_config(OPERATORS_CONFIG_PATH)
 
+op_cfg = load_operator_config(OPERATORS_CONFIG_PATH)
 if st.session_state.logged_in and st.session_state.operator:
     st.sidebar.success(f"Logged in as: {st.session_state.operator}")
     if st.sidebar.button("Logout"):
@@ -861,6 +861,7 @@ if not src.empty:
         st.info("No BAD defects recorded yet (Pareto will appear after at least one BAD save).")
 else:
     st.info("No saved results yet.")
+
 # -----------------------
 # REPORT DOWNLOAD
 # -----------------------
