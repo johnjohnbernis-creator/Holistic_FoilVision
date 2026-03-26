@@ -10,6 +10,14 @@ from collections import Counter
 import pandas as pd
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
+
+def load_operator_config(path: str):
+    if not os.path.isfile(path):
+        return None
+    import yaml
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
 # ================================
 # ✅ FIX: ensure required folders exist
 # ================================
@@ -77,12 +85,6 @@ def load_defects_config(path: str) -> pd.DataFrame:
     df = df[(df["active"] == 1) & (df["defect"] != "")].copy()
     return df
 
-def load_operator_config(path: str):
-    if not os.path.isfile(path):
-        return None
-    import yaml
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
 
 def verify_login(op_cfg: dict, username: str, password: str) -> bool:
     salt = str(op_cfg.get("salt", ""))
@@ -308,211 +310,8 @@ st.sidebar.header("🔐 Operator Login")
 # ================================
 # FIX: load operator configuration
 # ================================
-def load_operator_config(path):
-    """
-    Load operator configuration from CSV.
-    Expected columns depend on your app logic.
-    """
-    if not os.path.isfile(path):
-        st.warning(f"Operator config not found: {path}")
-        return pd.DataFrame()
-
-    try:
-        return pd.read_csv(path)
-    except Exception as e:
-        st.error(f"Failed to load operator config: {e}")
-        return pd.DataFrame()
-        # ================================
-# FIX: load operator configuration
-# ================================
-def load_operator_config(path):
-    """
-    Load operator configuration file.
-    Safe fallback if file does not exist.
-    """
-    if not path or not os.path.isfile(path):
-        st.warning(f"Operator config file not found: {path}")
-        return pd.DataFrame()
-
-    try:
-        return pd.read_csv(path)
-    except Exception as e:
-        st.error(f"Failed to load operator config: {e}")
-        return pd.DataFrame()
-# ================================
-# FIX (ADD-ONLY): guarantee load_operator_config exists at runtime
-# ================================
-if "load_operator_config" not in globals():
-    def load_operator_config(path: str):
-        # Expect YAML operator file; return dict or None
-        if not path or not os.path.isfile(path):
-            return None
-        try:
-            import yaml
-            with open(path, "r", encoding="utf-8") as f:
-                return yaml.safe_load(f)
-        except Exception:
-            return None
-if "load_operator_config" in globals() and "load_operator_config" not in globals():
-    load_operator_config = load_operator_config
-
-op_cfg = load_operator_config(OPERATORS_CONFIG_PATH)
-if st.session_state.logged_in and st.session_state.operator:
-    st.sidebar.success(f"Logged in as: {st.session_state.operator}")
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.session_state.operator = None
-        st.session_state.current_folder = None
-        st.session_state.image_index = 0
-        st.session_state.results = []
-        st.session_state.resume_loaded = False
-        safe_rerun()
-else:
-    if op_cfg is None:
-        operator_name = st.sidebar.text_input("Operator name", value="")
-        if st.sidebar.button("Enter") and operator_name.strip():
-            st.session_state.logged_in = True
-            st.session_state.operator = operator_name.strip()
-            safe_rerun()
-    else:
-        users = sorted(list((op_cfg.get("users") or {}).keys()))
-        username = st.sidebar.selectbox("Username", users) if users else st.sidebar.text_input("Username")
-        password = st.sidebar.text_input("Password", type="password")
-        if st.sidebar.button("Login"):
-            if verify_login(op_cfg, username, password):
-                disp = (op_cfg.get("users") or {}).get(username, {}).get("name") or username
-                st.session_state.logged_in = True
-                st.session_state.operator = disp
-                safe_rerun()
-            else:
-                st.sidebar.error("Invalid username/password")
-
-if not st.session_state.logged_in:
-    st.stop()
-
-# -----------------------
-# DEFECT CONFIG + FILTERS + LEGEND
-# -----------------------
-defects_df = load_defects_config(DEFECTS_CONFIG_PATH)
-defect_color_map = build_defect_color_map(defects_df)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("Defect dropdown")
-st.sidebar.caption(f"Using: {os.path.basename(DEFECTS_CONFIG_PATH)}")
-
-vision_only = st.sidebar.checkbox("Vision-Eligible only", value=False)
-filtered_defects = defects_df.copy()
-if vision_only:
-    filtered_defects = filtered_defects[filtered_defects["vision_eligible"].str.lower() == "yes"].copy()
-
-categories = sorted(filtered_defects["category"].dropna().unique().tolist())
-
-# Legend (description removed)
-with st.sidebar.expander("📘 Defect Legend", expanded=False):
-    legend_cols = ["category", "defect_family", "defect", "vision_eligible", "test_dependent"]
-    legend = defects_df[legend_cols].copy().sort_values(["category", "defect_family", "defect"])
-    legend["color_hex"] = legend["defect"].map(defect_color_map).fillna("#999999")
-    st.dataframe(legend)
-
-# Zoom controls (only used when BAD)
-zoom_behavior = st.sidebar.selectbox("Zoom behavior (only when BAD)", ["Click-to-zoom", "Magnifier lens", "Scroll wheel", "Both"], index=0)
-zoom_factor = st.sidebar.slider("Zoom factor", min_value=2.0, max_value=8.0, value=3.0, step=0.5)
-zoom_increment = st.sidebar.slider("Scroll increment", min_value=0.1, max_value=0.9, value=0.3, step=0.1)
-behavior_to_mode = {"Click-to-zoom": "dragmove", "Magnifier lens": "mousemove", "Scroll wheel": "scroll", "Both": "both"}
-zoom_mode = behavior_to_mode.get(zoom_behavior, "dragmove")
-
-# -----------------------
-# FOLDER SELECTION
-# -----------------------
-
-# ✅ ADDITIVE ONLY: IMAGE_ROOT override from Streamlit Secrets
-IMAGE_ROOT = st.secrets.get("IMAGE_ROOT", "").strip()
-if IMAGE_ROOT:
-    if not os.path.isdir(IMAGE_ROOT):
-        st.error(f"IMAGE_ROOT not found or not accessible: {IMAGE_ROOT}")
-        st.stop()
-
-    selected_folder = os.path.basename(IMAGE_ROOT)
-    folder_path = IMAGE_ROOT
-    images = list_images_external(IMAGE_ROOT)
-# ================================
-# SAFETY FIX: ensure helper exists at runtime
-# ================================
-if "list_images_external" not in globals():
-    def list_images_external(folder_path):
-        if not folder_path or not os.path.isdir(folder_path):
-            return []
-
-        images = []
-        for root, _, files in os.walk(folder_path):
-            for f in files:
-                if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
-                    images.append(os.path.join(root, f))
-
-        return sorted(images)
-    if not images:
-        st.error(f"No images found in IMAGE_ROOT: {IMAGE_ROOT}")
-        st.stop()
-else:
-    # fall back to ROOT_FOLDER logic below
-    pass
 
 
-folders = safe_list_subfolders(ROOT_FOLDER)
-if not folders:
-    st.error(f"No subfolders found under ROOT_FOLDER: {ROOT_FOLDER}")
-    st.stop()
-
-selected_folder = st.selectbox("Select a folder with images", folders)
-folder_path = os.path.join(ROOT_FOLDER, selected_folder)
-images = list_images_recursive(folder_path)
-
-if not images:
-    total_files, ext_counts = summarize_extensions(folder_path)
-    st.warning("No images found in this folder.")
-    st.write(f"Folder path: {folder_path}")
-    st.write(f"Total files found (all types): {total_files}")
-    st.write("File extensions found:")
-    st.json({k: int(v) for k, v in ext_counts.most_common(20)})
-    st.info(f"Supported extensions: {', '.join(SUPPORTED_EXT)}")
-    st.stop()
-
-operator_safe = "".join([c for c in st.session_state.operator if c.isalnum() or c in (" ", "_", "-")]).strip().replace(" ", "_")
-session_results_path = os.path.join(OUTPUT_DIR, f"{selected_folder}__{operator_safe}__results.csv")
-master_results_path = os.path.join(OUTPUT_DIR, "MASTER__image_review_results.csv")
-
-if st.session_state.current_folder != selected_folder:
-    st.session_state.current_folder = selected_folder
-    st.session_state.image_index = 0
-    st.session_state.results = []
-    st.session_state.resume_loaded = False
-
-if not st.session_state.resume_loaded:
-    existing = load_existing_csv(session_results_path)
-    if not existing.empty:
-        with st.expander("🔄 Resume saved progress?", expanded=False):
-            st.write(f"Found {len(existing)} saved reviews for this folder/operator.")
-            if st.button("Resume"):
-                st.session_state.results = existing.to_dict("records")
-                reviewed = set(existing["Image"].astype(str).tolist()) if "Image" in existing.columns else set()
-                idx = 0
-                for j, imgname in enumerate(images):
-                    if imgname not in reviewed:
-                        idx = j
-                        break
-                idx = min(j + 1, len(images) - 1)
-                st.session_state.image_index = idx
-                st.session_state.resume_loaded = True
-                safe_rerun()
-            if st.button("Start fresh"):
-                st.session_state.resume_loaded = True
-                safe_rerun()
-    else:
-        st.session_state.resume_loaded = True
-
-# -----------------------
-# Keys
-# -----------------------
 def decision_key(i): return f"decision_{selected_folder}_{operator_safe}_{i}"
 def category_key(i): return f"defcat_{selected_folder}_{operator_safe}_{i}"
 def family_key(i): return f"deffam_{selected_folder}_{operator_safe}_{i}"
