@@ -33,11 +33,6 @@ except Exception:
 st.set_page_config(page_title="Holistic FoilVision", layout="wide")
 ROOT_FOLDER = r"C:\Holistic_Foil" # MUST contain subfolders with images
 SUPPORTED_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
-
-# ✅ ADDITIVE ONLY: External image folder support
-USE_EXTERNAL_FOLDER = True
-EXTERNAL_IMAGE_FOLDER = r"C:\Holistic_Foil\Set_1"
-
 BASE_DIR = os.path.dirname(__file__)
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 SNAPSHOT_DIR = os.path.join(OUTPUT_DIR, "snapshots")
@@ -450,6 +445,26 @@ zoom_mode = behavior_to_mode.get(zoom_behavior, "dragmove")
 # -----------------------
 # FOLDER SELECTION
 # -----------------------
+
+# ✅ ADDITIVE ONLY: IMAGE_ROOT override from Streamlit Secrets
+IMAGE_ROOT = st.secrets.get("IMAGE_ROOT", "").strip()
+if IMAGE_ROOT:
+    if not os.path.isdir(IMAGE_ROOT):
+        st.error(f"IMAGE_ROOT not found or not accessible: {IMAGE_ROOT}")
+        st.stop()
+
+    selected_folder = os.path.basename(IMAGE_ROOT)
+    folder_path = IMAGE_ROOT
+    images = list_images_external(IMAGE_ROOT)
+
+    if not images:
+        st.error(f"No images found in IMAGE_ROOT: {IMAGE_ROOT}")
+        st.stop()
+else:
+    # fall back to ROOT_FOLDER logic below
+    pass
+
+
 folders = safe_list_subfolders(ROOT_FOLDER)
 if not folders:
     st.error(f"No subfolders found under ROOT_FOLDER: {ROOT_FOLDER}")
@@ -875,7 +890,7 @@ with st.sidebar.expander("📄 Reports", expanded=False):
     else:
         st.caption("No master results yet. Save at least one review.")
 
-# ✅ ADDITIVE ONLY: External folder image loader
+# ✅ ADDITIVE ONLY: External folder image loader (Secrets-aware)
 def list_images_external(folder_path: str):
     rels = []
     if not os.path.isdir(folder_path):
@@ -886,10 +901,3 @@ def list_images_external(folder_path: str):
                 full = os.path.join(root, fn)
                 rels.append(os.path.relpath(full, folder_path))
     return sorted(rels)
-
-
-# ✅ ADDITIVE ONLY: External folder override (no existing logic removed)
-if USE_EXTERNAL_FOLDER:
-    selected_folder = os.path.basename(EXTERNAL_IMAGE_FOLDER)
-    folder_path = EXTERNAL_IMAGE_FOLDER
-    images = list_images_external(EXTERNAL_IMAGE_FOLDER)
