@@ -9,6 +9,11 @@ from collections import Counter
 
 import pandas as pd
 import streamlit as st
+# ================================
+# FIX: operator config path
+# ================================
+OPERATORS_CONFIG_PATH = "operators.yaml"
+``
 from PIL import Image, ImageDraw, ImageFont
 # ================================
 # ✅ FIX: ensure required folders exist
@@ -110,7 +115,6 @@ def dedupe_master(master_df: pd.DataFrame) -> pd.DataFrame:
         if c not in master_df.columns:
             master_df[c] = ""
     return master_df.drop_duplicates(subset=["Folder", "Image", "Operator"], keep="last").reset_index(drop=True)
-
 
 # -------------------------------
 # ✅ ADDITIVE: Robust classification parser
