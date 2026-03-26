@@ -305,6 +305,23 @@ ensure_dirs()
 # LOGIN
 # -----------------------
 st.sidebar.header("🔐 Operator Login")
+# ================================
+# FIX: load operator configuration
+# ================================
+def load_operator_config(path):
+    """
+    Load operator configuration from CSV.
+    Expected columns depend on your app logic.
+    """
+    if not os.path.isfile(path):
+        st.warning(f"Operator config not found: {path}")
+        return pd.DataFrame()
+
+    try:
+        return pd.read_csv(path)
+    except Exception as e:
+        st.error(f"Failed to load operator config: {e}")
+        return pd.DataFrame()
 op_cfg = load_operator_config(OPERATORS_CONFIG_PATH)
 
 if st.session_state.logged_in and st.session_state.operator:
