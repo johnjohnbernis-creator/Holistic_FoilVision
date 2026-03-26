@@ -10,7 +10,13 @@ from collections import Counter
 import pandas as pd
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
-
+# ================================
+# ✅ FIX: ensure required folders exist
+# ================================
+def ensure_dirs():
+    os.makedirs("logs", exist_ok=True)
+    os.makedirs("snapshots", exist_ok=True)
+    os.makedirs("exports", exist_ok=True)
 
 def list_images_external(folder_path):
     if not folder_path or not os.path.isdir(folder_path):
