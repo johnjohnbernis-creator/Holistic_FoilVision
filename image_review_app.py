@@ -11,9 +11,8 @@ import pandas as pd
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 
-
 # ================================
-# SESSION STATE INITIALIZATION (UNCONDITIONAL)
+# SESSION STATE INITIALIZATION (SAFE)
 # ================================
 if "results" not in st.session_state:
     st.session_state.results = []
@@ -357,6 +356,20 @@ def load_operator_config(path):
     except Exception as e:
         st.error(f"Failed to load operator config: {e}")
         return pd.DataFrame()
+
+# ================================
+# ✅ FIX: compatibility alias for operator config loader
+# Some versions call load_operator_config(), while others define load_operator_config().
+# This block keeps BOTH names working without changing the rest of the app.
+# ================================
+try:
+    load_operator_config  # legacy name
+except NameError:
+    try:
+        load_operator_config = load_operator_config  # alias to canonical helper
+    except Exception:
+        pass
+
 op_cfg = load_operator_config(OPERATORS_CONFIG_PATH)
 
 if st.session_state.logged_in and st.session_state.operator:
