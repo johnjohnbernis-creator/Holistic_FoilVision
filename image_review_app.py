@@ -1,16 +1,3 @@
-0  import os
-1  import io
-2  import zipfile
-3  import hashlib
-4  import hmac
-5  import datetime as dt
-6  import re
-7  from collections import Counter
-8  import pandas as pd
-9  import streamlit as st
-10 from PIL import Image, ImageDraw, ImageFont
-
-11 # ================================
 12 # REQUIRED HELPER (MUST BE AT TOP)
 13 # ================================
 14 def list_images_external(folder_path):
@@ -24,68 +11,6 @@
 22                 images.append(os.path.join(root, f))
 23
 24     return sorted(images)
-# -----------------------
-# CONFIG
-# -----------------------
-st.set_page_config(page_title="Holistic FoilVision", layout="wide")
-ROOT_FOLDER = r"C:\Holistic_Foil" # MUST contain subfolders with images
-SUPPORTED_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
-BASE_DIR = os.path.dirname(__file__)
-OUTPUT_DIR = os.path.join(BASE_DIR, "output")
-SNAPSHOT_DIR = os.path.join(OUTPUT_DIR, "snapshots")
-
-# Prefer enhanced config if present
-DEFECTS_CONFIG_PATH = os.path.join(BASE_DIR, "defects_config_enhanced.csv")
-if not os.path.isfile(DEFECTS_CONFIG_PATH):
-    DEFECTS_CONFIG_PATH = os.path.join(BASE_DIR, "defects_config.csv")
-
-OPERATORS_CONFIG_PATH = os.path.join(BASE_DIR, "operators.yaml")
-
-# -----------------------
-# Compatibility helpers
-# -----------------------
-def safe_rerun():
-    if hasattr(st, "rerun"):
-        st.rerun()
-    elif hasattr(st, "experimental_rerun"):
-        st.experimental_rerun()
-    else:
-        st.stop()
-
-def notify_success(msg: str):
-    if hasattr(st, "toast"):
-        try:
-            st.toast(msg)
-            return
-        except Exception:
-            pass
-    st.success(msg)
-
-def safe_altair(chart):
-    try:
-        st.altair_chart(chart, use_container_width=True)
-    except TypeError:
-        st.altair_chart(chart)
-
-# -----------------------
-# Helpers
-# -----------------------
-def ensure_dirs():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    os.makedirs(SNAPSHOT_DIR, exist_ok=True)
-
-def now_utc_iso():
-    return dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-
-def sha256_hex(s: str) -> str:
-    return hashlib.sha256(s.encode("utf-8")).hexdigest()
-
-def safe_list_subfolders(root_folder: str):
-    if not os.path.isdir(root_folder):
-        return []
-    return sorted([f for f in os.listdir(root_folder) if os.path.isdir(os.path.join(root_folder, f))])
-
-def list_images_recursive(folder_path: str):
     rels = []
     if not os.path.isdir(folder_path):
         return rels
