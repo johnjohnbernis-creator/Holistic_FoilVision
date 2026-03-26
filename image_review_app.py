@@ -402,7 +402,21 @@ if IMAGE_ROOT:
     selected_folder = os.path.basename(IMAGE_ROOT)
     folder_path = IMAGE_ROOT
     images = list_images_external(IMAGE_ROOT)
+# ================================
+# SAFETY FIX: ensure helper exists at runtime
+# ================================
+if "list_images_external" not in globals():
+    def list_images_external(folder_path):
+        if not folder_path or not os.path.isdir(folder_path):
+            return []
 
+        images = []
+        for root, _, files in os.walk(folder_path):
+            for f in files:
+                if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
+                    images.append(os.path.join(root, f))
+
+        return sorted(images)
     if not images:
         st.error(f"No images found in IMAGE_ROOT: {IMAGE_ROOT}")
         st.stop()
