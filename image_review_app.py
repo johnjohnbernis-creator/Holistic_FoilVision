@@ -339,9 +339,7 @@ def load_operator_config(path):
     except Exception as e:
         st.error(f"Failed to load operator config: {e}")
         return pd.DataFrame()
-# ================================
-# RUNTIME GUARD: ensure operator loader exists
-# ================================
+# Runtime guard
 if "load_operator_config" not in globals():
     def load_operator_config(path):
         if not path or not os.path.isfile(path):
@@ -352,6 +350,7 @@ if "load_operator_config" not in globals():
             return pd.DataFrame()
 
 op_cfg = load_operator_config(OPERATORS_CONFIG_PATH)
+
 if st.session_state.logged_in and st.session_state.operator:
     st.sidebar.success(f"Logged in as: {st.session_state.operator}")
     if st.sidebar.button("Logout"):
