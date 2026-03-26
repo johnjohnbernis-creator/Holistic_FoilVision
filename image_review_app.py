@@ -10,6 +10,24 @@ from collections import Counter
 import pandas as pd
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
+
+
+# ================================
+# SESSION STATE INITIALIZATION (UNCONDITIONAL)
+# ================================
+if "results" not in st.session_state:
+    st.session_state.results = []
+if "image_index" not in st.session_state:
+    st.session_state.image_index = 0
+if "resume_loaded" not in st.session_state:
+    st.session_state.resume_loaded = False
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "operator" not in st.session_state:
+    st.session_state.operator = None
+if "current_folder" not in st.session_state:
+    st.session_state.current_folder = None
+
 # ================================
 # ✅ FIX: ensure required folders exist
 # ================================
@@ -339,7 +357,6 @@ def load_operator_config(path):
     except Exception as e:
         st.error(f"Failed to load operator config: {e}")
         return pd.DataFrame()
-``
 op_cfg = load_operator_config(OPERATORS_CONFIG_PATH)
 
 if st.session_state.logged_in and st.session_state.operator:
