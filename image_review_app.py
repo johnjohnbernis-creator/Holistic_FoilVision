@@ -339,7 +339,6 @@ def load_operator_config(path):
     except Exception as e:
         st.error(f"Failed to load operator config: {e}")
         return pd.DataFrame()
-``
 op_cfg = load_operator_config(OPERATORS_CONFIG_PATH)
 
 if st.session_state.logged_in and st.session_state.operator:
