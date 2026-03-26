@@ -24,7 +24,6 @@
 22                 images.append(os.path.join(root, f))
 23
 24     return sorted(images)
-``
 # -----------------------
 # CONFIG
 # -----------------------
