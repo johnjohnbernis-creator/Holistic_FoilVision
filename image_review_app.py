@@ -26,7 +26,18 @@ try:
     from streamlit_drawable_canvas import st_canvas # optional
 except Exception:
     st_canvas = None
+# ✅ REQUIRED: helper to list images from a folder (local / OneDrive)
+def list_images_external(folder_path):
+    if not folder_path or not os.path.isdir(folder_path):
+        return []
 
+    images = []
+    for root, _, files in os.walk(folder_path):
+        for f in files:
+            if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
+                images.append(os.path.join(root, f))
+
+    return sorted(images)
 # -----------------------
 # CONFIG
 # -----------------------
