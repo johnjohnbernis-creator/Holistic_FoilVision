@@ -10,23 +10,6 @@ from collections import Counter
 import pandas as pd
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
-
-# ================================
-# SESSION STATE INITIALIZATION (SAFE)
-# ================================
-if "results" not in st.session_state:
-    st.session_state.results = []
-if "image_index" not in st.session_state:
-    st.session_state.image_index = 0
-if "resume_loaded" not in st.session_state:
-    st.session_state.resume_loaded = False
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "operator" not in st.session_state:
-    st.session_state.operator = None
-if "current_folder" not in st.session_state:
-    st.session_state.current_folder = None
-
 # ================================
 # ✅ FIX: ensure required folders exist
 # ================================
@@ -356,22 +339,24 @@ def load_operator_config(path):
     except Exception as e:
         st.error(f"Failed to load operator config: {e}")
         return pd.DataFrame()
-
 # ================================
-# ✅ FIX: compatibility alias for operator config loader
-# Some versions call load_operator_config(), while others define load_operator_config().
-# This block keeps BOTH names working without changing the rest of the app.
+# FIX (ADD-ONLY): guarantee load_operator_config exists at runtime
 # ================================
-try:
-    load_operator_config  # legacy name
-except NameError:
-    try:
-        load_operator_config = load_operator_config  # alias to canonical helper
-    except Exception:
-        pass
+if "load_operator_config" not in globals():
+    def load_operator_config(path: str):
+        # Expect YAML operator file; return dict or None
+        if not path or not os.path.isfile(path):
+            return None
+        try:
+            import yaml
+            with open(path, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f)
+        except Exception:
+            return None
+if "load_operator_config" in globals() and "load_operator_config" not in globals():
+    load_operator_config = load_operator_config
 
 op_cfg = load_operator_config(OPERATORS_CONFIG_PATH)
-
 if st.session_state.logged_in and st.session_state.operator:
     st.sidebar.success(f"Logged in as: {st.session_state.operator}")
     if st.sidebar.button("Logout"):
