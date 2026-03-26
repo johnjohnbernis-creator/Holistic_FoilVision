@@ -10,6 +10,27 @@ from collections import Counter
 import pandas as pd
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
+
+
+# ================================
+# SESSION STATE INITIALIZATION (SAFE)
+# ================================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "operator" not in st.session_state:
+    st.session_state.operator = None
+if "current_folder" not in st.session_state:
+    st.session_state.current_folder = None
+if "image_index" not in st.session_state:
+    st.session_state.image_index = 0
+if "results" not in st.session_state:
+    st.session_state.results = []
+if "resume_loaded" not in st.session_state:
+    st.session_state.resume_loaded = False
+# Keep a global images list so reruns never NameError
+if "images" not in globals():
+    images = []
+
 # ================================
 # ✅ FIX: ensure required folders exist
 # ================================
@@ -301,47 +322,19 @@ if "resume_loaded" not in st.session_state:
 st.title("Holistic FoilVision")
 ensure_dirs()
 
+
 # -----------------------
-# LOGIN
+# SIMPLE OPERATOR LOGIN (NO PASSWORD)
 # -----------------------
 st.sidebar.header("🔐 Operator Login")
-# ================================
-# FIX: load operator configuration
-# ================================
-def load_operator_config(path):
-    """
-    Load operator configuration from CSV.
-    Expected columns depend on your app logic.
-    """
-    if not os.path.isfile(path):
-        st.warning(f"Operator config not found: {path}")
-        return pd.DataFrame()
 
-    try:
-        return pd.read_csv(path)
-    except Exception as e:
-        st.error(f"Failed to load operator config: {e}")
-        return pd.DataFrame()
-        # ================================
-# FIX: load operator configuration
-# ================================
-def load_operator_config(path):
-    """
-    Load operator configuration file.
-    Safe fallback if file does not exist.
-    """
-    if not path or not os.path.isfile(path):
-        st.warning(f"Operator config file not found: {path}")
-        return pd.DataFrame()
-
-    try:
-        return pd.read_csv(path)
-    except Exception as e:
-        st.error(f"Failed to load operator config: {e}")
-        return pd.DataFrame()
-op_cfg = load_operator_config(OPERATORS_CONFIG_PATH)
-
-if st.session_state.logged_in and st.session_state.operator:
+if not st.session_state.logged_in:
+    operator_name = st.sidebar.text_input("Operator name", value="")
+    if st.sidebar.button("Enter") and operator_name.strip():
+        st.session_state.logged_in = True
+        st.session_state.operator = operator_name.strip()
+        st.rerun()
+else:
     st.sidebar.success(f"Logged in as: {st.session_state.operator}")
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
@@ -350,26 +343,7 @@ if st.session_state.logged_in and st.session_state.operator:
         st.session_state.image_index = 0
         st.session_state.results = []
         st.session_state.resume_loaded = False
-        safe_rerun()
-else:
-    if op_cfg is None:
-        operator_name = st.sidebar.text_input("Operator name", value="")
-        if st.sidebar.button("Enter") and operator_name.strip():
-            st.session_state.logged_in = True
-            st.session_state.operator = operator_name.strip()
-            safe_rerun()
-    else:
-        users = sorted(list((op_cfg.get("users") or {}).keys()))
-        username = st.sidebar.selectbox("Username", users) if users else st.sidebar.text_input("Username")
-        password = st.sidebar.text_input("Password", type="password")
-        if st.sidebar.button("Login"):
-            if verify_login(op_cfg, username, password):
-                disp = (op_cfg.get("users") or {}).get(username, {}).get("name") or username
-                st.session_state.logged_in = True
-                st.session_state.operator = disp
-                safe_rerun()
-            else:
-                st.sidebar.error("Invalid username/password")
+        st.rerun()
 
 if not st.session_state.logged_in:
     st.stop()
