@@ -1,57 +1,30 @@
-import os
-import io
-import zipfile
-import hashlib
-import hmac
-import datetime as dt
-import re
-from collections import Counter
-import pandas as pd
-import streamlit as st
-from PIL import Image, ImageDraw, ImageFont
-# ================================
-# REQUIRED HELPER (MUST BE AT TOP)
-# ================================
-def list_images_external(folder_path):
-    if not folder_path or not os.path.isdir(folder_path):
-        return []
+0  import os
+1  import io
+2  import zipfile
+3  import hashlib
+4  import hmac
+5  import datetime as dt
+6  import re
+7  from collections import Counter
+8  import pandas as pd
+9  import streamlit as st
+10 from PIL import Image, ImageDraw, ImageFont
 
-    images = []
-    for root, _, files in os.walk(folder_path):
-        for f in files:
-            if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
-                images.append(os.path.join(root, f))
-
-    return sorted(images)
-
-# Optional add-ons (app runs without them)
-try:
-    import streamlit_hotkeys as hotkeys # optional
-except Exception:
-    hotkeys = None
-
-try:
-    from streamlit_image_zoom import image_zoom # optional (zoom/pan)
-except Exception:
-    image_zoom = None
-
-# ROI rectangle selection (for snapshot)
-try:
-    from streamlit_drawable_canvas import st_canvas # optional
-except Exception:
-    st_canvas = None
-# ✅ REQUIRED: helper to list images from a folder (local / OneDrive)
-def list_images_external(folder_path):
-    if not folder_path or not os.path.isdir(folder_path):
-        return []
-
-    images = []
-    for root, _, files in os.walk(folder_path):
-        for f in files:
-            if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
-                images.append(os.path.join(root, f))
-
-    return sorted(images)
+11 # ================================
+12 # REQUIRED HELPER (MUST BE AT TOP)
+13 # ================================
+14 def list_images_external(folder_path):
+15     if not folder_path or not os.path.isdir(folder_path):
+16         return []
+17
+18     images = []
+19     for root, _, files in os.walk(folder_path):
+20         for f in files:
+21             if f.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
+22                 images.append(os.path.join(root, f))
+23
+24     return sorted(images)
+``
 # -----------------------
 # CONFIG
 # -----------------------
