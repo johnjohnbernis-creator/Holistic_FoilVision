@@ -13,44 +13,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 # ================================
-# ✅ FIX: define required constants if missing
-# ================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFECTS_CONFIG_PATH = os.path.join(BASE_DIR, 'defects_config.csv')
-ROOT_FOLDER = os.path.join(BASE_DIR, 'images')
-OUTPUT_DIR = os.path.join(BASE_DIR, 'exports')
-SUPPORTED_EXT = ('.jpg','.jpeg','.png','.bmp','.tif','.tiff')
-
-# Safe helpers (no-op if already defined)
-def safe_list_subfolders(p):
-    return sorted([d for d in os.listdir(p) if os.path.isdir(os.path.join(p,d))]) if os.path.isdir(p) else []
-
-def list_images_recursive(folder_path):
-    imgs = []
-    for r,_,f in os.walk(folder_path):
-        for fn in f:
-            if fn.lower().endswith(SUPPORTED_EXT):
-                imgs.append(os.path.relpath(os.path.join(r,fn), folder_path))
-    return sorted(imgs)
-
-def sha256_hex(s):
-    import hashlib
-    return hashlib.sha256(s.encode('utf-8')).hexdigest()
-
-def now_utc_iso():
-    import datetime as dt
-    return dt.datetime.utcnow().isoformat()
-
-def notify_success(msg):
-    st.success(msg)
-
-def safe_rerun():
-    st.rerun()
-
-def safe_altair(chart):
-    st.altair_chart(chart, use_container_width=True)
-
-# ================================
 # SESSION STATE INITIALIZATION (SAFE)
 # ================================
 if "logged_in" not in st.session_state:
@@ -423,14 +385,16 @@ zoom_mode = behavior_to_mode.get(zoom_behavior, "dragmove")
 
 # ✅ ADDITIVE ONLY: IMAGE_ROOT override from Streamlit Secrets
 IMAGE_ROOT = st.secrets.get("IMAGE_ROOT", "").strip()
-if IMAGE_ROOT:
-    if not os.path.isdir(IMAGE_ROOT):
-        st.error(f"IMAGE_ROOT not found or not accessible: {IMAGE_ROOT}")
-        st.stop()
 
+# ✅ SAFE fallback behavior:
+# - If IMAGE_ROOT is valid → locked single-folder mode
+# - If IMAGE_ROOT is invalid/missing → fall back to folder dropdown (no hard stop)
+if IMAGE_ROOT and os.path.isdir(IMAGE_ROOT):
     selected_folder = os.path.basename(IMAGE_ROOT)
     folder_path = IMAGE_ROOT
     images = list_images_external(IMAGE_ROOT)
+else:
+    IMAGE_ROOT = ""  # fallback to ROOT_FOLDER selection
 # ================================
 # SAFETY FIX: ensure helper exists at runtime
 # ================================
