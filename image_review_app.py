@@ -9,6 +9,18 @@ from collections import Counter
 
 import pandas as pd
 import streamlit as st
+
+# ================================
+# ✅ REQUIRED GLOBAL CONSTANTS (FINAL FIX)
+# ================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFECTS_CONFIG_PATH = os.path.join(BASE_DIR, 'defects_config.csv')
+ROOT_FOLDER = os.path.join(BASE_DIR, 'images')
+OUTPUT_DIR = os.path.join(BASE_DIR, 'exports')
+SUPPORTED_EXT = ('.jpg','.jpeg','.png','.bmp','.tif','.tiff')
+
+# Safety: ensure directories exist
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 from PIL import Image, ImageDraw, ImageFont
 
 
