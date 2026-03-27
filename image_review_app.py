@@ -391,6 +391,21 @@ zoom_increment = st.sidebar.slider("Scroll increment", min_value=0.1, max_value=
 behavior_to_mode = {"Click-to-zoom": "dragmove", "Magnifier lens": "mousemove", "Scroll wheel": "scroll", "Both": "both"}
 zoom_mode = behavior_to_mode.get(zoom_behavior, "dragmove")
 
+
+# ================================
+# ✅ GUARANTEED HELPERS (FINAL SAFETY NET)
+# ================================
+if 'safe_list_subfolders' not in globals():
+    def safe_list_subfolders(p):
+        try:
+            return sorted([d for d in os.listdir(p) if os.path.isdir(os.path.join(p, d))])
+        except Exception:
+            return []
+
+# Ensure ROOT_FOLDER always exists
+if not os.path.isdir(ROOT_FOLDER):
+    os.makedirs(ROOT_FOLDER, exist_ok=True)
+
 # -----------------------
 # FOLDER SELECTION
 # -----------------------
