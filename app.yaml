@@ -1,0 +1,13 @@
+command: ["streamlit", "run", "app.py"]
+
+env:
+  - name: STREAMLIT_GATHER_USAGE_STATS
+    value: "false"
+
+  # ✅ ROOT folder for image batches (Unity Catalog Volume)
+  - name: IMAGE_ROOT
+    value: "/Volumes/quality/vision/foil_images"
+
+  # ✅ Where CSVs + snapshots will be written
+  - name: OUTPUT_DIR
+    value: "/Volumes/quality/vision/foil_output"
