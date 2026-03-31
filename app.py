@@ -74,7 +74,20 @@ def summarize_extensions(folder_path: str):
             ext = os.path.splitext(fn)[1].lower() or "(no ext)"
             exts.append(ext)
     return total, Counter(exts)
+def load_defects_config(path: str) -> pd.DataFrame:
+    """
+    Load defects configuration from CSV.
+    Safe fallback if file does not exist or fails to load.
+    """
+    if not os.path.isfile(path):
+        st.warning(f"Defects config not found: {path}")
+        return pd.DataFrame()
 
+    try:
+        return pd.read_csv(path)
+    except Exception as e:
+        st.error(f"Failed to load defects config: {e}")
+        return pd.DataFrame()
 def load_defects_config(path: str) -> pd.DataFrame:
     if not os.path.isfile(path):
         return pd.DataFrame([{
