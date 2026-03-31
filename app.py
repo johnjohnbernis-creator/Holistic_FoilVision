@@ -13,17 +13,20 @@ import streamlit as st
 # ================================
 # ✅ REQUIRED GLOBAL CONSTANTS (FINAL FIX)
 # ================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFECTS_CONFIG_PATH = os.path.join(BASE_DIR, 'defects_config.csv')
-ROOT_FOLDER = os.path.join(BASE_DIR, 'images')
-OUTPUT_DIR = os.path.join(BASE_DIR, 'exports')
-SUPPORTED_EXT = ('.jpg','.jpeg','.png','.bmp','.tif','.tiff')
+BASE_DIR = os.path.dirname(__file__)
 
-# Safety: ensure directories exist
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-from PIL import Image, ImageDraw, ImageFont
+# ✅ ADDITIVE fallback for Streamlit Community Cloud
+# Priority order:
+# 1) IMAGE_ROOT env var (Databricks / production)
+# 2) sample_images/ (Streamlit Community Cloud demo)
+# 3) Original local Windows path (no breakage)
+DEFAULT_ROOT_FOLDER = r"C:\Holistic_Foil"
 
-
+ROOT_FOLDER = (
+    os.environ.get("IMAGE_ROOT", "").strip()
+    or os.path.join(BASE_DIR, "sample_images")
+    or DEFAULT_ROOT_FOLDER
+)
 # ================================
 # SESSION STATE INITIALIZATION (SAFE)
 # ================================
