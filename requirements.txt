@@ -1,8 +1,9 @@
 streamlit
 pandas
-Pillow
+pillow
 altair
+pyyaml
+# Optional (your app safely handles if missing)
 streamlit-drawable-canvas
 streamlit-image-zoom
 streamlit-hotkeys
-pyyaml
