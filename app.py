@@ -38,7 +38,7 @@ SUPPORTED_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
 defaults = {
     "logged_in": False,
     "operator": "",
-    "images": None,        # <- IMPORTANT: None means “not loaded yet”
+    "images": None,            # None = not loaded yet
     "image_index": 0,
     "roi": None,
     "batch_id": "",
@@ -48,7 +48,7 @@ for k, v in defaults.items():
     st.session_state.setdefault(k, v)
 
 # =====================================================
-# HELPERS
+# HELPERS (✅ FIXED)
 # =====================================================
 def sha(s: str) -> str:
     return hashlib.sha256(s.encode()).hexdigest()
@@ -59,12 +59,13 @@ def now_utc() -> str:
 def list_images(folder: str) -> List[str]:
     if not folder or not os.path.isdir(folder):
         return []
-    imgs: List[str] = []
+
+    images: List[str] = []
     for root, _, files in os.walk(folder):
         for f in files:
             if f.lower().endswith(SUPPORTED_EXT):
-                imgs.append(os.path.join(root, f))
-    return sorted(imgs)
+                images.append(os.path.join(root, f))
+    return sorted(images)
 
 def load_defects_config(path: str) -> pd.DataFrame:
     if not os.path.isfile(path):
@@ -118,14 +119,12 @@ if not st.session_state.logged_in:
     st.stop()
 
 # =====================================================
-# ZIP UPLOAD  (HMI LINKED FOLDER)
+# ZIP UPLOAD (HMI)
 # =====================================================
 st.sidebar.markdown("---")
 st.sidebar.subheader("Image Batch")
 
-uploaded_zip = st.sidebar.file_uploader(
-    "Upload image batch (ZIP)", type=["zip"]
-)
+uploaded_zip = st.sidebar.file_uploader("Upload image batch (ZIP)", type=["zip"])
 
 if uploaded_zip:
     tmp = tempfile.mkdtemp(prefix="batch_")
@@ -144,24 +143,20 @@ if uploaded_zip:
         st.sidebar.error("ZIP contains no supported images.")
 
 # =====================================================
-# INSPECTION MODE (THIS IS THE KEY FIX)
+# INSPECTION MODE SWITCH ✅
 # =====================================================
 if st.session_state.images is None:
     st.info("Upload a ZIP with images to begin.")
     st.stop()
 
 # =====================================================
-# MAIN INSPECTION UI
+# MAIN IMAGE VIEW ✅
 # =====================================================
 images = st.session_state.images
 i = st.session_state.image_index
+img = Image.open(images[i]).convert("RGB")
 
-img_path = images[i]
-img = Image.open(img_path).convert("RGB")
-
-st.subheader(
-    f"Batch: {st.session_state.batch_id} | Image {i + 1} / {len(images)}"
-)
+st.subheader(f"Batch: {st.session_state.batch_id} | Image {i+1}/{len(images)}")
 st.image(img, width=800)
 
 # =====================================================
@@ -180,7 +175,6 @@ if decision == "Bad":
 # =====================================================
 # ROI + SNAPSHOT
 # =====================================================
-roi = None
 if decision == "Bad":
     canvas = st_canvas(
         background_image=img,
@@ -188,59 +182,10 @@ if decision == "Bad":
         stroke_color=defect_map.get(defect, "#00FF00"),
         fill_color="rgba(0,255,0,0.12)",
         drawing_mode="rect",
-        update_streamlit=True,
         height=img.height,
         width=img.width,
         key=f"canvas_{i}",
     )
-
-    if canvas.json_data and canvas.json_data.get("objects"):
-        r = canvas.json_data["objects"][-1]
-        roi = (
-            r["left"],
-            r["top"],
-            r["left"] + r["width"] * r["scaleX"],
-            r["top"] + r["height"] * r["scaleY"],
-        )
-
-# =====================================================
-# SAVE
-# =====================================================
-if st.button("Save Decision"):
-    rid = sha(f"{st.session_state.batch_id}|{img_path}|{st.session_state.operator}")
-    rec = {
-        "review_id": rid,
-        "Batch": st.session_state.batch_id,
-        "Operator": st.session_state.operator,
-        "Image": os.path.basename(img_path),
-        "Decision": decision,
-        "Defect": defect,
-        "ROI": roi,
-        "SavedAtUTC": now_utc(),
-    }
-
-    if decision == "Bad" and roi:
-        snap = create_snapshot(img, roi, defect_map.get(defect, "#00FF00"), defect)
-        snap_name = f"{rid}.png"
-        snap.save(os.path.join(SNAPSHOT_DIR, snap_name))
-        rec["Snapshot"] = snap_name
-    else:
-        rec["Snapshot"] = ""
-
-    st.session_state.results.append(rec)
-    pd.DataFrame(st.session_state.results).to_csv(
-        session_csv(st.session_state.batch_id, st.session_state.operator),
-        index=False,
-    )
-
-    master = pd.concat(
-        [pd.read_csv(master_csv())] if os.path.isfile(master_csv()) else [],
-        ignore_index=True,
-    )
-    master = pd.concat([master, pd.DataFrame([rec])]).drop_duplicates("review_id")
-    master.to_csv(master_csv(), index=False)
-
-    st.success("Saved ✅")
 
 # =====================================================
 # NAVIGATION
