@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # =====================================================
-# IMPORTS (STREAMLIT CLOUD SAFE)
+# IMPORTS
 # =====================================================
 import os
 import pandas as pd
@@ -45,14 +45,16 @@ st.session_state.setdefault("roi", None)
 # HELPERS
 # =====================================================
 def list_images(folder: str) -> List[str]:
-    if not os.path.isdir(folder):
+    """Recursively list supported images under a folder."""
+    if not folder or not os.path.isdir(folder):
         return []
-    imgs = []
+
+    images: List[str] = []
     for root, _, files in os.walk(folder):
         for f in files:
             if f.lower().endswith(SUPPORTED_EXT):
-                imgs.append(os.path.join(root, f))
-    return sorted(imgs)
+                images.append(os.path.join(root, f))
+    return sorted(images)
 
 
 def load_defects_config(path: str) -> pd.DataFrame:
@@ -60,9 +62,7 @@ def load_defects_config(path: str) -> pd.DataFrame:
         return pd.DataFrame(columns=["defect", "color_hex"])
     try:
         df = pd.read_csv(path)
-        if "defect" not in df.columns:
-            return pd.DataFrame(columns=["defect", "color_hex"])
-        return df
+        return df if "defect" in df.columns else pd.DataFrame(columns=["defect", "color_hex"])
     except Exception:
         return pd.DataFrame(columns=["defect", "color_hex"])
 
@@ -73,10 +73,9 @@ def build_defect_color_map(df: pd.DataFrame) -> Dict[str, str]:
     cmap = {}
     for _, r in df.iterrows():
         d = str(r.get("defect", "")).strip()
-        if not d:
-            continue
-        c = str(r.get("color_hex", "")).strip()
-        cmap[d] = c if c.startswith("#") else "#00FF00"
+        if d:
+            c = str(r.get("color_hex", "")).strip()
+            cmap[d] = c if c.startswith("#") else "#00FF00"
     return cmap
 
 
@@ -125,7 +124,10 @@ st.sidebar.markdown("---")
 folder = st.sidebar.text_input("Image folder", ROOT_FOLDER)
 
 if st.sidebar.button("Load images"):
-    st.session_state.images = list_images(folder)
+    imgs = list_images(folder)
+    if not imgs:
+        st.sidebar.error("No images found in this folder.")
+    st.session_state.images = imgs
     st.session_state.image_index = 0
     st.session_state.roi = None
     st.rerun()
@@ -163,10 +165,9 @@ if decision == "Bad":
     defect = st.sidebar.selectbox("Defect", [""] + sorted(defect_color_map.keys()))
 
 # =====================================================
-# ROI + SNAPSHOT (BAD ONLY)
+# ROI + SNAPSHOT
 # =====================================================
 roi = None
-
 if decision == "Bad":
     st.markdown("## 🎯 Defect Area (ROI) + Snapshot")
 
@@ -227,3 +228,4 @@ with c2:
         st.session_state.image_index += 1
         st.session_state.roi = None
         st.rerun()
+``
