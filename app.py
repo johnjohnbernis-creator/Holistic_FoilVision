@@ -617,36 +617,19 @@ operator_safe = "".join([c for c in st.session_state.operator if c.isalnum() or 
 session_results_path = os.path.join(OUTPUT_DIR, f"{selected_folder}__{operator_safe}__results.csv")
 master_results_path = os.path.join(OUTPUT_DIR, "MASTER__image_review_results.csv")
 
-if st.session_state.current_folder != selected_folder:
-    st.session_state.current_folder = selected_folder
-    st.session_state.image_index = 0
-    st.session_state.results = []
-    st.session_state.resume_loaded = False
-
-if not st.session_state.resume_loaded:
-    existing = load_existing_csv(session_results_path)
-    if not existing.empty:
-        with st.expander("🔄 Resume saved progress?", expanded=False):
-            st.write(f"Found {len(existing)} saved reviews for this folder/operator.")
-            if st.button("Resume"):
-                st.session_state.results = existing.to_dict("records")
-                reviewed = set(existing["Image"].astype(str).tolist()) if "Image" in existing.columns else set()
-                idx = 0
+# -------------------------------
+# Resume image index safely
+# -------------------------------
+idx = 0
 for j, imgname in enumerate(images):
     if imgname not in reviewed:
         idx = j
         break
 else:
     idx = (len(images) - 1) if images else 0
-                st.session_state.image_index = idx
-                st.session_state.resume_loaded = True
-                safe_rerun()
-            if st.button("Start fresh"):
-                st.session_state.resume_loaded = True
-                safe_rerun()
-    else:
-        st.session_state.resume_loaded = True
 
+# ✅ THIS LINE MUST NOT BE INDENTED
+st.session_state.image_index = idx
 # -----------------------
 # Keys
 # -----------------------
