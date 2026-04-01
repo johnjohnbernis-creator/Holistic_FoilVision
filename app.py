@@ -4,6 +4,7 @@ import zipfile
 import hashlib
 import hmac
 import datetime as dt
+from datetime import time
 import re
 from collections import Counter
 
@@ -590,8 +591,13 @@ def save_current():
         st.session_state[crit_confirm_key(i)] = False
 
     record = {
-        "review_id": sha256_hex(f"{selected_folder}\n{img_rel}\n{st.session_state.operator}"),
-        "ReviewedAtUTC": now_utc_iso(),
+        "review_id": sha256_hex(f"{selected_folder}
+{img_rel}
+{st.session_state.operator}"),
+        "ReviewedAtUTC": (ts := dt.datetime.utcnow()).isoformat(),
+        "review_date": ts.date().isoformat(),
+        "shift": (lambda _s: _s[0])(get_shift_info(ts)),
+        "shift_date": (lambda _s: _s[1].isoformat())(get_shift_info(ts)),
         "Operator": st.session_state.operator,
         "Folder": selected_folder,
         "Image": img_rel,
@@ -895,3 +901,17 @@ def list_images_external(folder_path: str):
                 full = os.path.join(root, fn)
                 rels.append(os.path.relpath(full, folder_path))
     return sorted(rels)
+
+# ✅ ADDITIVE: Shift helper (A/B/C with night-shift safe date)
+def get_shift_info(ts: dt.datetime):
+    t = ts.time()
+    if time(6, 0) <= t < time(14, 0):
+        shift = "A"
+        shift_date = ts.date()
+    elif time(14, 0) <= t < time(22, 0):
+        shift = "B"
+        shift_date = ts.date()
+    else:
+        shift = "C"
+        shift_date = ts.date() if t >= time(22, 0) else (ts.date() - dt.timedelta(days=1))
+    return shift, shift_date
