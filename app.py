@@ -7,6 +7,7 @@ import hmac
 import datetime as dt
 import re
 from collections import Counter
+from PIL import Image, ImageDraw, ImageFont
 
 import pandas as pd
 import streamlit as st
@@ -233,18 +234,22 @@ def deterministic_color(name: str) -> str:
     h = int(hashlib.md5(name.encode("utf-8")).hexdigest(), 16)
     return DEFAULT_PALETTE[h % len(DEFAULT_PALETTE)]
 
-def build_defect_color_map(defects_df: pd.DataFrame) -> dict:
+def build_defect_color_map(defects_df) -> dict:
+    if not isinstance(defects_df, pd.DataFrame) or defects_df.empty:
+        return {}
+
     m = {}
     for _, r in defects_df.iterrows():
         d = str(r.get("defect", "")).strip()
         if not d:
             continue
         cfg_color = str(r.get("color_hex", "")).strip()
-        if cfg_color and cfg_color.startswith("#") and len(cfg_color) in (4, 7):
+        if cfg_color.startswith("#") and len(cfg_color) in (4, 7):
             m[d] = cfg_color
         else:
             m[d] = deterministic_color(d)
     return m
+
 
 # -----------------------
 # Snapshot creation
@@ -252,7 +257,7 @@ def build_defect_color_map(defects_df: pd.DataFrame) -> dict:
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
-def create_snapshot(img: Image.Image, crop_box_xyxy, color_hex: str, label: str) -> Image.Image:
+def create_snapshot(img, crop_box_xyxy, color_hex: str, label: str) -> Image.Image:
     x1, y1, x2, y2 = crop_box_xyxy
     w, h = img.size
     x1 = clamp(int(round(x1)), 0, w - 1)
@@ -379,6 +384,8 @@ def load_defects_config(path: str) -> pd.DataFrame:
 # DEFECT CONFIG + FILTERS + LEGEND
 # -----------------------
 defects_df = load_defects_config(DEFECTS_CONFIG_PATH)
+if not isinstance(defects_df, pd.DataFrame):
+    defects_df = pd.DataFrame()
 defect_color_map = build_defect_color_map(defects_df)
 
 st.sidebar.markdown("---")
