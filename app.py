@@ -7,7 +7,7 @@ import datetime as dt
 from datetime import time
 import re
 from collections import Counter
-
+from PIL import Image, ImageDraw, ImageFont
 import pandas as pd
 import streamlit as st
 import uuid
