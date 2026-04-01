@@ -1,25 +1,22 @@
 from __future__ import annotations
 
 # =====================================================
-# IMPORTS
+# IMPORTS (CLOUD SAFE)
 # =====================================================
 import os
+import zipfile
+import tempfile
+from typing import List, Dict
+
 import pandas as pd
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
-from typing import List, Dict
-
 from streamlit_drawable_canvas import st_canvas
 
 # =====================================================
 # CONFIGURATION
 # =====================================================
 BASE_DIR = os.path.dirname(__file__)
-
-ROOT_FOLDER = os.environ.get(
-    "IMAGE_ROOT",
-    os.path.join(BASE_DIR, "sample_images"),
-)
 
 DEFECTS_CONFIG_PATH = os.environ.get(
     "DEFECTS_CONFIG_PATH",
@@ -40,21 +37,21 @@ st.session_state.setdefault("images", [])
 st.session_state.setdefault("image_index", 0)
 st.session_state.setdefault("decision", "Good")
 st.session_state.setdefault("roi", None)
+st.session_state.setdefault("batch_id", "")
+st.session_state.setdefault("image_root", None)
 
 # =====================================================
 # HELPERS
 # =====================================================
 def list_images(folder: str) -> List[str]:
-    """Recursively list supported images under a folder."""
     if not folder or not os.path.isdir(folder):
         return []
-
-    images: List[str] = []
+    imgs: List[str] = []
     for root, _, files in os.walk(folder):
         for f in files:
             if f.lower().endswith(SUPPORTED_EXT):
-                images.append(os.path.join(root, f))
-    return sorted(images)
+                imgs.append(os.path.join(root, f))
+    return sorted(imgs)
 
 
 def load_defects_config(path: str) -> pd.DataFrame:
@@ -70,7 +67,7 @@ def load_defects_config(path: str) -> pd.DataFrame:
 def build_defect_color_map(df: pd.DataFrame) -> Dict[str, str]:
     if not isinstance(df, pd.DataFrame) or df.empty:
         return {}
-    cmap = {}
+    cmap: Dict[str, str] = {}
     for _, r in df.iterrows():
         d = str(r.get("defect", "")).strip()
         if d:
@@ -83,7 +80,7 @@ def create_snapshot(img: Image.Image, roi, color_hex: str, label: str) -> Image.
     x1, y1, x2, y2 = map(int, roi)
     crop = img.crop((x1, y1, x2, y2)).convert("RGB")
 
-    out = Image.new("RGB", (crop.width + 8, crop.height + 44), "#111")
+    out = Image.new("RGB", (crop.width + 8, crop.height + 44), "#111111")
     out.paste(crop, (4, 36))
 
     draw = ImageDraw.Draw(out)
@@ -105,46 +102,61 @@ with st.sidebar:
             st.session_state.operator = name.strip()
             st.rerun()
     else:
-        st.success(f"Logged in as {st.session_state.operator}")
+        st.success(f"Logged in as: {st.session_state.operator}")
         if st.button("Logout"):
-            st.session_state.logged_in = False
-            st.session_state.operator = ""
-            st.session_state.images = []
-            st.session_state.image_index = 0
-            st.session_state.roi = None
+            st.session_state.clear()
             st.rerun()
 
 if not st.session_state.logged_in:
     st.stop()
 
 # =====================================================
-# IMAGE LOAD
+# IMAGE SOURCE — ZIP = “LINKED FOLDER”
 # =====================================================
 st.sidebar.markdown("---")
-folder = st.sidebar.text_input("Image folder", ROOT_FOLDER)
+st.sidebar.subheader("Image Batch")
 
-if st.sidebar.button("Load images"):
-    imgs = list_images(folder)
-    if not imgs:
-        st.sidebar.error("No images found in this folder.")
-    st.session_state.images = imgs
-    st.session_state.image_index = 0
-    st.session_state.roi = None
-    st.rerun()
+uploaded_zip = st.sidebar.file_uploader(
+    "Upload image batch (ZIP)",
+    type=["zip"],
+    help="Upload a ZIP containing 100+ PNG/JPG images (Batch folder).",
+)
+
+if uploaded_zip:
+    # Extract ZIP to temp directory
+    tmp_dir = tempfile.mkdtemp(prefix="batch_")
+    with zipfile.ZipFile(uploaded_zip, "r") as z:
+        z.extractall(tmp_dir)
+
+    images = list_images(tmp_dir)
+
+    if not images:
+        st.sidebar.error("ZIP contains no supported images.")
+    else:
+        st.session_state.images = images
+        st.session_state.image_root = tmp_dir
+        st.session_state.image_index = 0
+        st.session_state.roi = None
+        st.session_state.batch_id = os.path.splitext(uploaded_zip.name)[0]
+        st.sidebar.success(f"Loaded {len(images)} images")
+
+        st.rerun()
 
 if not st.session_state.images:
-    st.info("Load a folder with images to begin.")
+    st.info("Upload a ZIP with images to begin.")
     st.stop()
 
+# =====================================================
+# MAIN IMAGE VIEW
+# =====================================================
 images = st.session_state.images
 i = st.session_state.image_index
 img_path = images[i]
 img = Image.open(img_path).convert("RGB")
 
-# =====================================================
-# MAIN IMAGE DISPLAY
-# =====================================================
-st.subheader(f"Image {i + 1} / {len(images)}")
+st.subheader(
+    f"Batch: {st.session_state.batch_id}  |  Image {i + 1} / {len(images)}"
+)
 st.image(img, width=800)
 
 # =====================================================
@@ -165,7 +177,7 @@ if decision == "Bad":
     defect = st.sidebar.selectbox("Defect", [""] + sorted(defect_color_map.keys()))
 
 # =====================================================
-# ROI + SNAPSHOT
+# ROI + SNAPSHOT (BAD ONLY)
 # =====================================================
 roi = None
 if decision == "Bad":
@@ -207,7 +219,11 @@ if decision == "Bad" and roi:
     st.image(snapshot, caption="Snapshot Preview", width=420)
 
     if st.button("Save Snapshot"):
-        fname = f"{st.session_state.operator}_{i}_{defect}.png".replace(" ", "_")
+        fname = (
+            f"{st.session_state.batch_id}_"
+            f"{st.session_state.operator}_"
+            f"{i+1}_{defect}.png"
+        ).replace(" ", "_")
         path = os.path.join(SNAPSHOT_DIR, fname)
         snapshot.save(path)
         st.success(f"Snapshot saved: {path}")
@@ -228,4 +244,6 @@ with c2:
         st.session_state.image_index += 1
         st.session_state.roi = None
         st.rerun()
+
+st.progress((i + 1) / len(images))
 ``
