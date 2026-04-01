@@ -617,37 +617,37 @@ def save_current():
 
     df_session = pd.DataFrame(st.session_state.results)
     write_csv(session_results_path, df_session)
+existing = load_existing_csv(session_results_path)
 
-    df_master = load_existing_csv(master_results_path)
-    df_master = pd.concat([df_master, df_session], ignore_index=True)
-    df_master = dedupe_master(df_master)
-    write_csv(master_results_path, df_master)
+if not existing.empty:
+    with st.expander("🔄 Resume saved progress?", expanded=False):
+        st.write(f"Found {len(existing)} saved reviews for this folder/operator.")
 
-    notify_success("Saved ✅")
-    return True
+        if st.button("Resume"):
+            st.session_state.results = existing.to_dict("records")
+            reviewed = (
+                set(existing["Image"].astype(str).tolist())
+                if "Image" in existing.columns
+                else set()
+            )
 
-def save_and_next():
-    ok = save_current()
-    if ok:
-        go_next()
+            idx = 0
+            for j, imgname in enumerate(images):
+                if imgname not in reviewed:
+                    idx = j
+                    break
+            else:
+                idx = len(images) - 1 if images else 0
 
-# -----------------------
-# MAIN DISPLAY
-# -----------------------
-i = st.session_state.image_index
-img_rel = images[i]
-img_path = os.path.join(folder_path, img_rel)
+            st.session_state.image_index = idx
+            st.session_state.resume_loaded = True
+            safe_rerun()
 
-if decision_key(i) not in st.session_state:
-    st.session_state[decision_key(i)] = "Good"
-
-current_decision = st.session_state.get(decision_key(i), "Good")
-
-left, right = st.columns([3, 2], gap="large")
-
-with left:
-    st.subheader(f"Image {i+1} of {len(images)} — {os.path.basename(img_rel)}")
-    img = Image.open(img_path)
+        if st.button("Start fresh"):
+            st.session_state.resume_loaded = True
+            safe_rerun()
+else:
+    st.session_state.resume_loaded = True
 
     if current_decision == "Bad" and image_zoom is not None:
         image_zoom(
