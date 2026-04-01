@@ -382,7 +382,12 @@ def load_defects_config(path: str) -> pd.DataFrame:
 # -----------------------
 # DEFECT CONFIG + FILTERS + LEGEND
 # -----------------------
-defects_df = load_defects_config(DEFECTS_CONFIG_PATH)
+defects_df = load_defects_config(
+    globals().get(
+        "DEFECTS_CONFIG_PATH",
+        os.path.join(BASE_DIR, "defects_config.csv")
+    )
+)
 if not isinstance(defects_df, pd.DataFrame):
     defects_df = pd.DataFrame()
 defect_color_map = build_defect_color_map(defects_df)
