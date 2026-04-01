@@ -10,6 +10,7 @@ from collections import Counter
 
 import pandas as pd
 import streamlit as st
+import uuid
 
 # ================================
 # ✅ REQUIRED GLOBAL CONSTANTS (FINAL FIX)
@@ -55,6 +56,129 @@ def ensure_dirs():
     os.makedirs("snapshots", exist_ok=True)
     os.makedirs("exports", exist_ok=True)
 
+    os.makedirs("uploads", exist_ok=True)
+
+
+# ✅ ADDITIVE: Shift helper (A/B/C with night-shift safe date)
+
+
+# ================================
+# ✅ ADDITIVE: Upload ZIP / images (Cloud-safe)
+# ================================
+UPLOAD_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
+
+def _sanitize_label(s: str) -> str:
+    s = "" if s is None else str(s)
+    s = re.sub(r"[^A-Za-z0-9_\- ]+", "", s).strip()
+    return s.replace(" ", "_")[:80] or "UPLOAD"
+
+def _safe_extract_zip_images(zip_bytes: bytes, dest_dir: str):
+    """Extract only image files from ZIP into dest_dir, preventing zip-slip."""
+    os.makedirs(dest_dir, exist_ok=True)
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+        for info in z.infolist():
+            if info.is_dir():
+                continue
+            name = info.filename.replace('\\\\', '/')
+            norm = os.path.normpath(name).lstrip(os.sep).lstrip('/')
+            # prevent ../ traversal
+            if norm.startswith('..') or os.path.isabs(norm):
+                continue
+            if not norm.lower().endswith(UPLOAD_EXT):
+                continue
+            out_path = os.path.join(dest_dir, norm)
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            with z.open(info) as rf, open(out_path, 'wb') as wf:
+                wf.write(rf.read())
+
+def _save_uploaded_images(files, dest_dir: str):
+    os.makedirs(dest_dir, exist_ok=True)
+    seen = {}
+    for f in files or []:
+        base = os.path.basename(getattr(f, 'name', 'uploaded'))
+        base = _sanitize_label(base)
+        root, ext = os.path.splitext(base)
+        ext = ext.lower()
+        if ext not in UPLOAD_EXT:
+            continue
+        if base in seen:
+            seen[base] += 1
+            base = f"{root}_{seen[base]}{ext}"
+        else:
+            seen[base] = 0
+        out_path = os.path.join(dest_dir, base)
+        data = f.getvalue() if hasattr(f, 'getvalue') else f.read()
+        with open(out_path, 'wb') as wf:
+            wf.write(data)
+
+def _prepare_uploaded_images_ui():
+    """Sidebar UI: choose ZIP or multi-image upload. Sets session_state upload_* keys."""
+    st.sidebar.markdown('---')
+    st.sidebar.subheader('📁 Image Source')
+    mode = st.sidebar.radio(
+        'Choose source',
+        ['Local folders (on this machine)', 'Upload ZIP (recommended)', 'Upload images (multi-select)'],
+        key='image_source_mode'
+    )
+
+    st.session_state.setdefault('upload_mode', False)
+    st.session_state.setdefault('upload_folder_path', '')
+    st.session_state.setdefault('upload_label', '')
+
+    if mode == 'Upload ZIP (recommended)':
+        zf = st.sidebar.file_uploader(
+            'Upload a ZIP of images (can include subfolders)',
+            type=['zip'],
+            key='zip_uploader'
+        )
+        if zf is not None:
+            token = f"zip::{zf.name}::{getattr(zf, 'size', 0)}"
+            if st.session_state.get('upload_token') != token:
+                upload_id = uuid.uuid4().hex[:10]
+                dest = os.path.join('uploads', f"zip_{upload_id}")
+                _safe_extract_zip_images(zf.getvalue(), dest)
+                st.session_state['upload_token'] = token
+                st.session_state['upload_mode'] = True
+                st.session_state['upload_folder_path'] = dest
+                st.session_state['upload_label'] = f"UPLOAD_{_sanitize_label(zf.name)}"
+            st.sidebar.success('ZIP loaded ✅')
+
+    elif mode == 'Upload images (multi-select)':
+        fs = st.sidebar.file_uploader(
+            'Upload images (select multiple files)',
+            type=[e.lstrip('.') for e in UPLOAD_EXT],
+            accept_multiple_files=True,
+            key='img_uploader'
+        )
+        if fs:
+            token = 'files::' + '|'.join([f"{f.name}:{getattr(f,'size',0)}" for f in fs])
+            if st.session_state.get('upload_token') != token:
+                upload_id = uuid.uuid4().hex[:10]
+                dest = os.path.join('uploads', f"files_{upload_id}")
+                _save_uploaded_images(fs, dest)
+                st.session_state['upload_token'] = token
+                st.session_state['upload_mode'] = True
+                st.session_state['upload_folder_path'] = dest
+                st.session_state['upload_label'] = f"UPLOAD_{upload_id}"
+            st.sidebar.success('Images loaded ✅')
+
+    else:
+        st.session_state['upload_mode'] = False
+
+    return mode
+def get_shift_info(ts: dt.datetime):
+    t = ts.time()
+    if time(6, 0) <= t < time(14, 0):
+        shift = "A"
+        shift_date = ts.date()
+    elif time(14, 0) <= t < time(22, 0):
+        shift = "B"
+        shift_date = ts.date()
+    else:
+        shift = "C"
+        # Night shift belongs to the date it started
+        shift_date = ts.date() if t >= time(22, 0) else (ts.date() - dt.timedelta(days=1))
+    return shift, shift_date
 def list_images_external(folder_path):
     if not folder_path or not os.path.isdir(folder_path):
         return []
@@ -460,24 +584,38 @@ else:
     pass
 
 
-folders = safe_list_subfolders(ROOT_FOLDER)
-if not folders:
-    st.error(f"No subfolders found under ROOT_FOLDER: {ROOT_FOLDER}")
-    st.stop()
+# ✅ ADDITIVE: If user uploaded images, bypass local folder dropdown
+if st.session_state.get("upload_mode", False) and st.session_state.get("upload_folder_path", ""):
+    selected_folder = st.session_state.get("upload_label", "UPLOAD")
+    folder_path = st.session_state.get("upload_folder_path", "")
+    images = list_images_external(folder_path)
+    if not images:
+        total_files, ext_counts = summarize_extensions(folder_path) if os.path.isdir(folder_path) else (0, Counter())
+        st.warning("No images found in uploaded content.")
+        st.write(f"Upload folder path: {folder_path}")
+        st.write(f"Total files found (all types): {total_files}")
+        if hasattr(ext_counts, "most_common"):
+            st.json({k: int(v) for k, v in ext_counts.most_common(20)})
+        st.stop()
+else:
+    folders = safe_list_subfolders(ROOT_FOLDER)
+    if not folders:
+        st.error(f"No subfolders found under ROOT_FOLDER: {ROOT_FOLDER}")
+        st.stop()
 
-selected_folder = st.selectbox("Select a folder with images", folders)
-folder_path = os.path.join(ROOT_FOLDER, selected_folder)
-images = list_images_recursive(folder_path)
+    selected_folder = st.selectbox("Select a folder with images", folders)
+    folder_path = os.path.join(ROOT_FOLDER, selected_folder)
+    images = list_images_recursive(folder_path)
 
-if not images:
-    total_files, ext_counts = summarize_extensions(folder_path)
-    st.warning("No images found in this folder.")
-    st.write(f"Folder path: {folder_path}")
-    st.write(f"Total files found (all types): {total_files}")
-    st.write("File extensions found:")
-    st.json({k: int(v) for k, v in ext_counts.most_common(20)})
-    st.info(f"Supported extensions: {', '.join(SUPPORTED_EXT)}")
-    st.stop()
+    if not images:
+        total_files, ext_counts = summarize_extensions(folder_path)
+        st.warning("No images found in this folder.")
+        st.write(f"Folder path: {folder_path}")
+        st.write(f"Total files found (all types): {total_files}")
+        st.write("File extensions found:")
+        st.json({k: int(v) for k, v in ext_counts.most_common(20)})
+        st.info(f"Supported extensions: {', '.join(SUPPORTED_EXT)}")
+        st.stop()
 
 operator_safe = "".join([c for c in st.session_state.operator if c.isalnum() or c in (" ", "_", "-")]).strip().replace(" ", "_")
 session_results_path = os.path.join(OUTPUT_DIR, f"{selected_folder}__{operator_safe}__results.csv")
@@ -590,14 +728,15 @@ def save_current():
         # ✅ ADDITIVE: reset critical confirmation when Good
         st.session_state[crit_confirm_key(i)] = False
 
+    ts = dt.datetime.utcnow()
+    shift, shift_date = get_shift_info(ts)
+
     record = {
-        "review_id": sha256_hex(f"{selected_folder}
-{img_rel}
-{st.session_state.operator}"),
-        "ReviewedAtUTC": (ts := dt.datetime.utcnow()).isoformat(),
+        "review_id": sha256_hex("{}_{}_{}".format(selected_folder, img_rel, st.session_state.operator)),
+        "ReviewedAtUTC": now_utc_iso(),
         "review_date": ts.date().isoformat(),
-        "shift": (lambda _s: _s[0])(get_shift_info(ts)),
-        "shift_date": (lambda _s: _s[1].isoformat())(get_shift_info(ts)),
+        "shift": shift,
+        "shift_date": shift_date.isoformat(),
         "Operator": st.session_state.operator,
         "Folder": selected_folder,
         "Image": img_rel,
@@ -901,17 +1040,3 @@ def list_images_external(folder_path: str):
                 full = os.path.join(root, fn)
                 rels.append(os.path.relpath(full, folder_path))
     return sorted(rels)
-
-# ✅ ADDITIVE: Shift helper (A/B/C with night-shift safe date)
-def get_shift_info(ts: dt.datetime):
-    t = ts.time()
-    if time(6, 0) <= t < time(14, 0):
-        shift = "A"
-        shift_date = ts.date()
-    elif time(14, 0) <= t < time(22, 0):
-        shift = "B"
-        shift_date = ts.date()
-    else:
-        shift = "C"
-        shift_date = ts.date() if t >= time(22, 0) else (ts.date() - dt.timedelta(days=1))
-    return shift, shift_date
