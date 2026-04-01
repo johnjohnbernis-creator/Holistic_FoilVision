@@ -7,6 +7,7 @@ import hmac
 import datetime as dt
 import re
 from collections import Counter
+from PIL import Image, ImageDraw, ImageFont
 
 import pandas as pd
 import streamlit as st
@@ -248,7 +249,6 @@ def build_defect_color_map(defects_df) -> dict:
         else:
             m[d] = deterministic_color(d)
     return m
-
 # -----------------------
 # Snapshot creation
 # -----------------------
@@ -381,9 +381,11 @@ def load_defects_config(path: str) -> pd.DataFrame:
 # -----------------------
 # DEFECT CONFIG + FILTERS + LEGEND
 # -----------------------
-defects_df = load_defects_config(
-    globals().get("DEFECTS_CONFIG_PATH", os.path.join(BASE_DIR, "defects_config.csv"))
-)
+defects_df = load_defects_config(DEFECTS_CONFIG_PATH)
+if not isinstance(defects_df, pd.DataFrame):
+    defects_df = pd.DataFrame()
+if not isinstance(defects_df, pd.DataFrame):
+    defects_df = pd.DataFrame()
 defect_color_map = build_defect_color_map(defects_df)
 
 st.sidebar.markdown("---")
