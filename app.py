@@ -17,6 +17,14 @@ import streamlit as st
 # ================================
 BASE_DIR = os.path.dirname(__file__)
 
+# ================================
+# ✅ Defects configuration path
+# ================================
+DEFECTS_CONFIG_PATH = os.environ.get(
+    "DEFECTS_CONFIG_PATH",
+    os.path.join(BASE_DIR, "defects_config.csv")
+)
+
 # ✅ ADDITIVE fallback for Streamlit Community Cloud
 # Priority order:
 # 1) IMAGE_ROOT env var (Databricks / production)
