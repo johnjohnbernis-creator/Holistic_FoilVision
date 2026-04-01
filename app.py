@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # =====================================================
-# IMPORTS (STREAMLIT-CLOUD SAFE)
+# IMPORTS (STREAMLIT CLOUD SAFE)
 # =====================================================
 import os
 import pandas as pd
@@ -44,7 +44,8 @@ st.session_state.setdefault("roi", None)
 # =====================================================
 # HELPERS
 # =====================================================
-def list_images(folder: str) -> Listif not os.path.isdir(folder):
+def list_images(folder: str) -> List[str]:
+    if not os.path.isdir(folder):
         return []
     imgs = []
     for root, _, files in os.walk(folder):
@@ -83,12 +84,12 @@ def create_snapshot(img: Image.Image, roi, color_hex: str, label: str) -> Image.
     x1, y1, x2, y2 = map(int, roi)
     crop = img.crop((x1, y1, x2, y2)).convert("RGB")
 
-    canvas = Image.new("RGB", (crop.width + 8, crop.height + 44), "#111")
-    canvas.paste(crop, (4, 36))
+    out = Image.new("RGB", (crop.width + 8, crop.height + 44), "#111")
+    out.paste(crop, (4, 36))
 
-    draw = ImageDraw.Draw(canvas)
+    draw = ImageDraw.Draw(out)
     draw.text((6, 6), label, fill=color_hex, font=ImageFont.load_default())
-    return canvas
+    return out
 
 # =====================================================
 # UI – LOGIN
@@ -202,7 +203,7 @@ if decision == "Bad" and roi:
         defect or "Defect",
     )
 
-    st.image(snapshot, caption="Snapshot Preview", width=400)
+    st.image(snapshot, caption="Snapshot Preview", width=420)
 
     if st.button("Save Snapshot"):
         fname = f"{st.session_state.operator}_{i}_{defect}.png".replace(" ", "_")
