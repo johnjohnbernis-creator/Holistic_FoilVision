@@ -237,15 +237,14 @@ def deterministic_color(name: str) -> str:
 def build_defect_color_map(defects_df) -> dict:
     if not isinstance(defects_df, pd.DataFrame) or defects_df.empty:
         return {}
-
     m = {}
     for _, r in defects_df.iterrows():
         d = str(r.get("defect", "")).strip()
         if not d:
             continue
-        cfg_color = str(r.get("color_hex", "")).strip()
-        if cfg_color.startswith("#") and len(cfg_color) in (4, 7):
-            m[d] = cfg_color
+        cfg = str(r.get("color_hex", "")).strip()
+        if cfg.startswith("#") and len(cfg) in (4, 7):
+            m[d] = cfg
         else:
             m[d] = deterministic_color(d)
     return m
@@ -370,14 +369,7 @@ else:
 
 if not st.session_state.logged_in:
     st.stop()
-def load_defects_config(path: str) -> pd.DataFrame:
-    """
-    Load defects configuration from CSV.
-    Safe fallback if file does not exist or fails to load.
-    """
-    if not os.path.isfile(path):
-        st.warning(f"Defects config not found: {path}")
-        return pd.DataFrame()
+
 # -----------------------
 # DEFECT CONFIG + FILTERS + LEGEND
 # -----------------------
