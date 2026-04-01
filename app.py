@@ -1,30 +1,49 @@
 from __future__ import annotations
 
+# =====================================================
+# IMPORTS
+# =====================================================
 import os
-import zipfile
-import tempfile
+import datetime as dt
+import hashlib
 from typing import List
 
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 from streamlit_drawable_canvas import st_canvas
+import pandas as pd
+import altair as alt
 
-# ========== CONFIG ==========
+# =====================================================
+# CONFIG (HMI / LOCAL)
+# =====================================================
+
+# Set by AVEVA Edge or batch launcher
+IMAGE_ROOT = os.environ.get("IMAGE_ROOT", r"C:\Holistic_Foil")
+
 SUPPORTED_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
+
+DATA_DIR = "data"
 SNAPSHOT_DIR = "snapshots"
+
+os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(SNAPSHOT_DIR, exist_ok=True)
 
-# ========== STATE ==========
+# =====================================================
+# SESSION STATE
+# =====================================================
 st.session_state.setdefault("logged_in", False)
 st.session_state.setdefault("operator", "")
-st.session_state.setdefault("images", None)
+st.session_state.setdefault("images", [])
 st.session_state.setdefault("index", 0)
 st.session_state.setdefault("roi", None)
-st.session_state.setdefault("batch_id", "")
+st.session_state.setdefault("results", [])
 
-# ========== HELPERS ==========
+# =====================================================
+# HELPERS
+# =====================================================
 def list_images(folder: str) -> List[str]:
-    if not folder or not os.path.isdir(folder):
+    if not os.path.isdir(folder):
         return []
     imgs: List[str] = []
     for root, _, files in os.walk(folder):
@@ -33,16 +52,24 @@ def list_images(folder: str) -> List[str]:
                 imgs.append(os.path.join(root, f))
     return sorted(imgs)
 
+def sha(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
+def now_utc() -> str:
+    return dt.datetime.utcnow().isoformat()
+
 def create_snapshot(img: Image.Image, roi, label: str) -> Image.Image:
     x1, y1, x2, y2 = map(int, roi)
     crop = img.crop((x1, y1, x2, y2))
-    out = Image.new("RGB", (crop.width+8, crop.height+40), "#111")
-    out.paste(crop, (4, 36))
+    out = Image.new("RGB", (crop.width + 8, crop.height + 36), "#111")
+    out.paste(crop, (4, 32))
     d = ImageDraw.Draw(out)
-    d.text((5, 5), label, fill="green", font=ImageFont.load_default())
+    d.text((6, 6), label, fill="green", font=ImageFont.load_default())
     return out
 
-# ========== LOGIN ==========
+# =====================================================
+# LOGIN (HMI STYLE)
+# =====================================================
 st.title("Holistic FoilVision")
 
 with st.sidebar:
@@ -54,7 +81,7 @@ with st.sidebar:
             st.session_state.operator = name.strip()
             st.rerun()
     else:
-        st.success(f"Logged in as {st.session_state.operator}")
+        st.success(f"Logged in as: {st.session_state.operator}")
         if st.button("Logout"):
             st.session_state.clear()
             st.rerun()
@@ -62,43 +89,33 @@ with st.sidebar:
 if not st.session_state.logged_in:
     st.stop()
 
-# ========== ZIP UPLOAD ==========
+# =====================================================
+# IMAGE LOAD (DIRECT FOLDER LINK)
+# =====================================================
 st.sidebar.markdown("---")
-st.sidebar.subheader("Image Batch")
+st.sidebar.subheader("Image Source")
+st.sidebar.caption(f"Folder: {IMAGE_ROOT}")
 
-uploaded_zip = st.sidebar.file_uploader("Upload batch ZIP", type=["zip"])
-
-if uploaded_zip:
-    tmpdir = tempfile.mkdtemp()
-    with zipfile.ZipFile(uploaded_zip) as z:
-        z.extractall(tmpdir)
-
-    images = list_images(tmpdir)
-    if images:
-        st.session_state.images = images
-        st.session_state.index = 0
-        st.session_state.batch_id = os.path.splitext(uploaded_zip.name)[0]
-        st.sidebar.success(f"Loaded {len(images)} images")
-        st.rerun()
-    else:
-        st.sidebar.error("No images found")
-
-# ========== INSPECTION MODE ==========
-if st.session_state.images is None:
-    st.info("Upload a ZIP to begin inspection.")
+images = list_images(IMAGE_ROOT)
+if not images:
+    st.error(f"No images found in: {IMAGE_ROOT}")
     st.stop()
 
-images = st.session_state.images
+# =====================================================
+# INSPECTION UI
+# =====================================================
 i = st.session_state.index
-img = Image.open(images[i]).convert("RGB")
+img_path = images[i]
+img = Image.open(img_path).convert("RGB")
 
-st.subheader(f"Batch {st.session_state.batch_id} — Image {i+1}/{len(images)}")
-st.image(img, width=700)
+st.subheader(f"Image {i + 1} / {len(images)}")
+st.image(img, width=800)
 
 decision = st.sidebar.radio("Decision", ["Good", "Bad"])
 
 roi = None
 if decision == "Bad":
+    st.markdown("### Defect Area (ROI)")
     canvas = st_canvas(
         background_image=img,
         stroke_width=3,
@@ -118,19 +135,46 @@ if decision == "Bad":
             r["top"] + r["height"] * r["scaleY"],
         )
 
-if decision == "Bad" and roi:
-    snap = create_snapshot(img, roi, "Defect")
-    st.image(snap, width=300)
+# =====================================================
+# SAVE
+# =====================================================
+if st.button("Save Decision"):
+    rid = sha(f"{img_path}|{st.session_state.operator}")
+    record = {
+        "ReviewID": rid,
+        "Operator": st.session_state.operator,
+        "Image": os.path.basename(img_path),
+        "Decision": decision,
+        "SavedUTC": now_utc(),
+    }
 
-# ========== NAV ==========
+    if decision == "Bad" and roi:
+        snap = create_snapshot(img, roi, "Defect")
+        snap_name = f"{rid}.png"
+        snap.save(os.path.join(SNAPSHOT_DIR, snap_name))
+        record["Snapshot"] = snap_name
+    else:
+        record["Snapshot"] = ""
+
+    st.session_state.results.append(record)
+    pd.DataFrame(st.session_state.results).to_csv(
+        os.path.join(DATA_DIR, "session_results.csv"),
+        index=False,
+    )
+
+    st.success("Saved")
+
+# =====================================================
+# NAVIGATION
+# =====================================================
 c1, c2 = st.columns(2)
 with c1:
     if st.button("Previous") and i > 0:
         st.session_state.index -= 1
         st.rerun()
 with c2:
-    if st.button("Next") and i < len(images)-1:
+    if st.button("Next") and i < len(images) - 1:
         st.session_state.index += 1
         st.rerun()
 
-st.progress((i+1)/len(images))
+st.progress((i + 1) / len(images))
