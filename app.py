@@ -38,11 +38,10 @@ SUPPORTED_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
 defaults = {
     "logged_in": False,
     "operator": "",
-    "images": [],
+    "images": None,        # <- IMPORTANT: None means “not loaded yet”
     "image_index": 0,
     "roi": None,
     "batch_id": "",
-    "image_root": None,
     "results": [],
 }
 for k, v in defaults.items():
@@ -69,7 +68,7 @@ def list_images(folder: str) -> List[str]:
 
 def load_defects_config(path: str) -> pd.DataFrame:
     if not os.path.isfile(path):
-        return pd.DataFrame(columns=["defect", "category", "color_hex"])
+        return pd.DataFrame(columns=["defect", "color_hex"])
     return pd.read_csv(path)
 
 def build_defect_color_map(df: pd.DataFrame) -> Dict[str, str]:
@@ -96,14 +95,8 @@ def session_csv(batch, operator):
 def master_csv():
     return os.path.join(DATA_DIR, "MASTER_results.csv")
 
-def load_csv(p):
-    return pd.read_csv(p) if os.path.isfile(p) else pd.DataFrame()
-
-def save_csv(p, df):
-    df.to_csv(p, index=False)
-
 # =====================================================
-# UI – LOGIN
+# LOGIN
 # =====================================================
 st.title("Holistic FoilVision")
 
@@ -125,11 +118,14 @@ if not st.session_state.logged_in:
     st.stop()
 
 # =====================================================
-# ZIP UPLOAD (LINKED FOLDER)
+# ZIP UPLOAD  (HMI LINKED FOLDER)
 # =====================================================
 st.sidebar.markdown("---")
 st.sidebar.subheader("Image Batch")
-uploaded_zip = st.sidebar.file_uploader("Upload image batch (ZIP)", type=["zip"])
+
+uploaded_zip = st.sidebar.file_uploader(
+    "Upload image batch (ZIP)", type=["zip"]
+)
 
 if uploaded_zip:
     tmp = tempfile.mkdtemp(prefix="batch_")
@@ -137,153 +133,127 @@ if uploaded_zip:
         z.extractall(tmp)
 
     imgs = list_images(tmp)
-    if not imgs:
-        st.sidebar.error("No images found in ZIP.")
-    else:
+
+    if imgs:
         st.session_state.images = imgs
-        st.session_state.image_root = tmp
         st.session_state.image_index = 0
-        st.session_state.roi = None
         st.session_state.batch_id = os.path.splitext(uploaded_zip.name)[0]
-
-        sess = load_csv(session_csv(st.session_state.batch_id, st.session_state.operator))
-        if not sess.empty:
-            st.sidebar.info("Resuming previous session")
-            st.session_state.results = sess.to_dict("records")
-            reviewed = set(sess["Image"].tolist())
-            for idx, p in enumerate(imgs):
-                if os.path.basename(p) not in reviewed:
-                    st.session_state.image_index = idx
-                    break
-
         st.sidebar.success(f"Loaded {len(imgs)} images")
         st.rerun()
+    else:
+        st.sidebar.error("ZIP contains no supported images.")
 
-# ✅ IMPORTANT: do NOT block execution after images are loaded
-if not st.session_state.images:
+# =====================================================
+# INSPECTION MODE (THIS IS THE KEY FIX)
+# =====================================================
+if st.session_state.images is None:
     st.info("Upload a ZIP with images to begin.")
+    st.stop()
 
 # =====================================================
 # MAIN INSPECTION UI
 # =====================================================
-if st.session_state.images:
-    images = st.session_state.images
-    i = st.session_state.image_index
-    img_path = images[i]
-    img = Image.open(img_path).convert("RGB")
+images = st.session_state.images
+i = st.session_state.image_index
 
-    st.subheader(
-        f"Batch: {st.session_state.batch_id} | "
-        f"Image {i + 1} / {len(images)}"
+img_path = images[i]
+img = Image.open(img_path).convert("RGB")
+
+st.subheader(
+    f"Batch: {st.session_state.batch_id} | Image {i + 1} / {len(images)}"
+)
+st.image(img, width=800)
+
+# =====================================================
+# DECISION / DEFECT
+# =====================================================
+defects_df = load_defects_config(DEFECTS_CONFIG_PATH)
+defect_map = build_defect_color_map(defects_df)
+
+st.sidebar.markdown("---")
+decision = st.sidebar.radio("Decision", ["Good", "Bad"])
+
+defect = ""
+if decision == "Bad":
+    defect = st.sidebar.selectbox("Defect", [""] + sorted(defect_map.keys()))
+
+# =====================================================
+# ROI + SNAPSHOT
+# =====================================================
+roi = None
+if decision == "Bad":
+    canvas = st_canvas(
+        background_image=img,
+        stroke_width=3,
+        stroke_color=defect_map.get(defect, "#00FF00"),
+        fill_color="rgba(0,255,0,0.12)",
+        drawing_mode="rect",
+        update_streamlit=True,
+        height=img.height,
+        width=img.width,
+        key=f"canvas_{i}",
     )
-    st.image(img, width=800)
 
-    # -------------------------------------------------
-    # DEFECT + DECISION
-    # -------------------------------------------------
-    defects_df = load_defects_config(DEFECTS_CONFIG_PATH)
-    defect_map = build_defect_color_map(defects_df)
-
-    st.sidebar.markdown("---")
-    decision = st.sidebar.radio("Decision", ["Good", "Bad"])
-
-    defect = ""
-    if decision == "Bad":
-        defect = st.sidebar.selectbox("Defect", [""] + sorted(defect_map.keys()))
-
-    # -------------------------------------------------
-    # ROI + SNAPSHOT
-    # -------------------------------------------------
-    roi = None
-    if decision == "Bad":
-        canvas = st_canvas(
-            background_image=img,
-            stroke_width=3,
-            stroke_color=defect_map.get(defect, "#00FF00"),
-            fill_color="rgba(0,255,0,0.12)",
-            drawing_mode="rect",
-            update_streamlit=True,
-            height=img.height,
-            width=img.width,
-            key=f"canvas_{i}",
+    if canvas.json_data and canvas.json_data.get("objects"):
+        r = canvas.json_data["objects"][-1]
+        roi = (
+            r["left"],
+            r["top"],
+            r["left"] + r["width"] * r["scaleX"],
+            r["top"] + r["height"] * r["scaleY"],
         )
-        if canvas.json_data and canvas.json_data.get("objects"):
-            r = canvas.json_data["objects"][-1]
-            roi = (
-                r["left"],
-                r["top"],
-                r["left"] + r["width"] * r["scaleX"],
-                r["top"] + r["height"] * r["scaleY"],
-            )
 
-    # -------------------------------------------------
-    # SAVE DECISION
-    # -------------------------------------------------
-    if st.button("Save Decision"):
-        rid = sha(f"{st.session_state.batch_id}|{img_path}|{st.session_state.operator}")
-        rec = {
-            "review_id": rid,
-            "Batch": st.session_state.batch_id,
-            "Operator": st.session_state.operator,
-            "Image": os.path.basename(img_path),
-            "Decision": decision,
-            "Defect": defect,
-            "ROI": roi,
-            "SavedAtUTC": now_utc(),
-        }
-        if decision == "Bad" and roi:
-            snap = create_snapshot(img, roi, defect_map.get(defect, "#00FF00"), defect)
-            snap_name = f"{rid}.png"
-            snap.save(os.path.join(SNAPSHOT_DIR, snap_name))
-            rec["Snapshot"] = snap_name
-        else:
-            rec["Snapshot"] = ""
+# =====================================================
+# SAVE
+# =====================================================
+if st.button("Save Decision"):
+    rid = sha(f"{st.session_state.batch_id}|{img_path}|{st.session_state.operator}")
+    rec = {
+        "review_id": rid,
+        "Batch": st.session_state.batch_id,
+        "Operator": st.session_state.operator,
+        "Image": os.path.basename(img_path),
+        "Decision": decision,
+        "Defect": defect,
+        "ROI": roi,
+        "SavedAtUTC": now_utc(),
+    }
 
-        st.session_state.results.append(rec)
+    if decision == "Bad" and roi:
+        snap = create_snapshot(img, roi, defect_map.get(defect, "#00FF00"), defect)
+        snap_name = f"{rid}.png"
+        snap.save(os.path.join(SNAPSHOT_DIR, snap_name))
+        rec["Snapshot"] = snap_name
+    else:
+        rec["Snapshot"] = ""
 
-        sess_path = session_csv(st.session_state.batch_id, st.session_state.operator)
-        save_csv(sess_path, pd.DataFrame(st.session_state.results))
+    st.session_state.results.append(rec)
+    pd.DataFrame(st.session_state.results).to_csv(
+        session_csv(st.session_state.batch_id, st.session_state.operator),
+        index=False,
+    )
 
-        master = pd.concat([load_csv(master_csv()), pd.DataFrame([rec])])
-        master = master.drop_duplicates("review_id")
-        save_csv(master_csv(), master)
+    master = pd.concat(
+        [pd.read_csv(master_csv())] if os.path.isfile(master_csv()) else [],
+        ignore_index=True,
+    )
+    master = pd.concat([master, pd.DataFrame([rec])]).drop_duplicates("review_id")
+    master.to_csv(master_csv(), index=False)
 
-        st.success("Saved ✅")
+    st.success("Saved ✅")
 
-    # -------------------------------------------------
-    # NAVIGATION
-    # -------------------------------------------------
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("⬅ Previous") and i > 0:
-            st.session_state.image_index -= 1
-            st.rerun()
-    with c2:
-        if st.button("Next ➡") and i < len(images) - 1:
-            st.session_state.image_index += 1
-            st.rerun()
+# =====================================================
+# NAVIGATION
+# =====================================================
+c1, c2 = st.columns(2)
+with c1:
+    if st.button("⬅ Previous") and i > 0:
+        st.session_state.image_index -= 1
+        st.rerun()
 
-    st.progress((i + 1) / len(images))
+with c2:
+    if st.button("Next ➡") and i < len(images) - 1:
+        st.session_state.image_index += 1
+        st.rerun()
 
-    # -------------------------------------------------
-    # PARETO / BATCH SUMMARY
-    # -------------------------------------------------
-    master = load_csv(master_csv())
-    bad = master[
-        (master["Decision"] == "Bad")
-        & (master["Batch"] == st.session_state.batch_id)
-    ]
-
-    if not bad.empty:
-        st.markdown("## 📊 Batch Summary (Pareto)")
-        pareto = bad.groupby("Defect").size().reset_index(name="Count")
-        chart = (
-            alt.Chart(pareto)
-            .mark_bar()
-            .encode(
-                x=alt.X("Defect:N", sort="-y"),
-                y="Count:Q",
-                tooltip=["Defect", "Count"],
-            )
-        )
-        st.altair_chart(chart, use_container_width=True)
+st.progress((i + 1) / len(images))
