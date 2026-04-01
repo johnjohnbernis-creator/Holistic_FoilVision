@@ -234,22 +234,18 @@ def deterministic_color(name: str) -> str:
     h = int(hashlib.md5(name.encode("utf-8")).hexdigest(), 16)
     return DEFAULT_PALETTE[h % len(DEFAULT_PALETTE)]
 
-def build_defect_color_map(defects_df) -> dict:
-    if not isinstance(defects_df, pd.DataFrame) or defects_df.empty:
-        return {}
-
+def build_defect_color_map(defects_df: pd.DataFrame) -> dict:
     m = {}
     for _, r in defects_df.iterrows():
         d = str(r.get("defect", "")).strip()
         if not d:
             continue
         cfg_color = str(r.get("color_hex", "")).strip()
-        if cfg_color.startswith("#") and len(cfg_color) in (4, 7):
+        if cfg_color and cfg_color.startswith("#") and len(cfg_color) in (4, 7):
             m[d] = cfg_color
         else:
             m[d] = deterministic_color(d)
     return m
-
 
 # -----------------------
 # Snapshot creation
@@ -384,13 +380,8 @@ def load_defects_config(path: str) -> pd.DataFrame:
 # DEFECT CONFIG + FILTERS + LEGEND
 # -----------------------
 defects_df = load_defects_config(
-    globals().get(
-        "DEFECTS_CONFIG_PATH",
-        os.path.join(BASE_DIR, "defects_config.csv")
-    )
+    globals().get("DEFECTS_CONFIG_PATH", os.path.join(BASE_DIR, "defects_config.csv"))
 )
-if not isinstance(defects_df, pd.DataFrame):
-    defects_df = pd.DataFrame()
 defect_color_map = build_defect_color_map(defects_df)
 
 st.sidebar.markdown("---")
