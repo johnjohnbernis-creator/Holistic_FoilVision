@@ -1,116 +1,60 @@
 from __future__ import annotations
 
-# =====================================================
-# IMPORTS
-# =====================================================
 import os
 import zipfile
 import tempfile
-import hashlib
-import datetime as dt
-from typing import List, Dict
+from typing import List
 
-import pandas as pd
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 from streamlit_drawable_canvas import st_canvas
-import altair as alt
 
-# =====================================================
-# CONFIG
-# =====================================================
-BASE_DIR = os.path.dirname(__file__)
-DATA_DIR = os.path.join(BASE_DIR, "data")
-SNAPSHOT_DIR = os.path.join(BASE_DIR, "snapshots")
-os.makedirs(DATA_DIR, exist_ok=True)
+# ========== CONFIG ==========
+SUPPORTED_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
+SNAPSHOT_DIR = "snapshots"
 os.makedirs(SNAPSHOT_DIR, exist_ok=True)
 
-DEFECTS_CONFIG_PATH = os.environ.get(
-    "DEFECTS_CONFIG_PATH",
-    os.path.join(BASE_DIR, "defects_config.csv"),
-)
+# ========== STATE ==========
+st.session_state.setdefault("logged_in", False)
+st.session_state.setdefault("operator", "")
+st.session_state.setdefault("images", None)
+st.session_state.setdefault("index", 0)
+st.session_state.setdefault("roi", None)
+st.session_state.setdefault("batch_id", "")
 
-SUPPORTED_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
-
-# =====================================================
-# SESSION STATE
-# =====================================================
-defaults = {
-    "logged_in": False,
-    "operator": "",
-    "images": None,            # None = not loaded yet
-    "image_index": 0,
-    "roi": None,
-    "batch_id": "",
-    "results": [],
-}
-for k, v in defaults.items():
-    st.session_state.setdefault(k, v)
-
-# =====================================================
-# HELPERS (✅ FIXED)
-# =====================================================
-def sha(s: str) -> str:
-    return hashlib.sha256(s.encode()).hexdigest()
-
-def now_utc() -> str:
-    return dt.datetime.utcnow().isoformat()
-
+# ========== HELPERS ==========
 def list_images(folder: str) -> List[str]:
     if not folder or not os.path.isdir(folder):
         return []
-
-    images: List[str] = []
+    imgs: List[str] = []
     for root, _, files in os.walk(folder):
         for f in files:
             if f.lower().endswith(SUPPORTED_EXT):
-                images.append(os.path.join(root, f))
-    return sorted(images)
+                imgs.append(os.path.join(root, f))
+    return sorted(imgs)
 
-def load_defects_config(path: str) -> pd.DataFrame:
-    if not os.path.isfile(path):
-        return pd.DataFrame(columns=["defect", "color_hex"])
-    return pd.read_csv(path)
-
-def build_defect_color_map(df: pd.DataFrame) -> Dict[str, str]:
-    cmap = {}
-    for _, r in df.iterrows():
-        d = str(r.get("defect", "")).strip()
-        if d:
-            c = str(r.get("color_hex", "")).strip()
-            cmap[d] = c if c.startswith("#") else "#00FF00"
-    return cmap
-
-def create_snapshot(img: Image.Image, roi, color_hex: str, label: str) -> Image.Image:
+def create_snapshot(img: Image.Image, roi, label: str) -> Image.Image:
     x1, y1, x2, y2 = map(int, roi)
-    crop = img.crop((x1, y1, x2, y2)).convert("RGB")
-    out = Image.new("RGB", (crop.width + 8, crop.height + 44), "#111")
+    crop = img.crop((x1, y1, x2, y2))
+    out = Image.new("RGB", (crop.width+8, crop.height+40), "#111")
     out.paste(crop, (4, 36))
     d = ImageDraw.Draw(out)
-    d.text((6, 6), label, fill=color_hex, font=ImageFont.load_default())
+    d.text((5, 5), label, fill="green", font=ImageFont.load_default())
     return out
 
-def session_csv(batch, operator):
-    return os.path.join(DATA_DIR, f"{batch}_{operator}_session.csv")
-
-def master_csv():
-    return os.path.join(DATA_DIR, "MASTER_results.csv")
-
-# =====================================================
-# LOGIN
-# =====================================================
+# ========== LOGIN ==========
 st.title("Holistic FoilVision")
 
 with st.sidebar:
-    st.header("🔐 Operator Login")
+    st.header("Operator Login")
     if not st.session_state.logged_in:
-        name = st.text_input("Operator name")
+        name = st.text_input("Operator")
         if st.button("Login") and name.strip():
             st.session_state.logged_in = True
             st.session_state.operator = name.strip()
             st.rerun()
     else:
-        st.success(f"Logged in as: {st.session_state.operator}")
+        st.success(f"Logged in as {st.session_state.operator}")
         if st.button("Logout"):
             st.session_state.clear()
             st.rerun()
@@ -118,87 +62,75 @@ with st.sidebar:
 if not st.session_state.logged_in:
     st.stop()
 
-# =====================================================
-# ZIP UPLOAD (HMI)
-# =====================================================
+# ========== ZIP UPLOAD ==========
 st.sidebar.markdown("---")
 st.sidebar.subheader("Image Batch")
 
-uploaded_zip = st.sidebar.file_uploader("Upload image batch (ZIP)", type=["zip"])
+uploaded_zip = st.sidebar.file_uploader("Upload batch ZIP", type=["zip"])
 
 if uploaded_zip:
-    tmp = tempfile.mkdtemp(prefix="batch_")
+    tmpdir = tempfile.mkdtemp()
     with zipfile.ZipFile(uploaded_zip) as z:
-        z.extractall(tmp)
+        z.extractall(tmpdir)
 
-    imgs = list_images(tmp)
-
-    if imgs:
-        st.session_state.images = imgs
-        st.session_state.image_index = 0
+    images = list_images(tmpdir)
+    if images:
+        st.session_state.images = images
+        st.session_state.index = 0
         st.session_state.batch_id = os.path.splitext(uploaded_zip.name)[0]
-        st.sidebar.success(f"Loaded {len(imgs)} images")
+        st.sidebar.success(f"Loaded {len(images)} images")
         st.rerun()
     else:
-        st.sidebar.error("ZIP contains no supported images.")
+        st.sidebar.error("No images found")
 
-# =====================================================
-# INSPECTION MODE SWITCH ✅
-# =====================================================
+# ========== INSPECTION MODE ==========
 if st.session_state.images is None:
-    st.info("Upload a ZIP with images to begin.")
+    st.info("Upload a ZIP to begin inspection.")
     st.stop()
 
-# =====================================================
-# MAIN IMAGE VIEW ✅
-# =====================================================
 images = st.session_state.images
-i = st.session_state.image_index
+i = st.session_state.index
 img = Image.open(images[i]).convert("RGB")
 
-st.subheader(f"Batch: {st.session_state.batch_id} | Image {i+1}/{len(images)}")
-st.image(img, width=800)
+st.subheader(f"Batch {st.session_state.batch_id} — Image {i+1}/{len(images)}")
+st.image(img, width=700)
 
-# =====================================================
-# DECISION / DEFECT
-# =====================================================
-defects_df = load_defects_config(DEFECTS_CONFIG_PATH)
-defect_map = build_defect_color_map(defects_df)
-
-st.sidebar.markdown("---")
 decision = st.sidebar.radio("Decision", ["Good", "Bad"])
 
-defect = ""
-if decision == "Bad":
-    defect = st.sidebar.selectbox("Defect", [""] + sorted(defect_map.keys()))
-
-# =====================================================
-# ROI + SNAPSHOT
-# =====================================================
+roi = None
 if decision == "Bad":
     canvas = st_canvas(
         background_image=img,
         stroke_width=3,
-        stroke_color=defect_map.get(defect, "#00FF00"),
-        fill_color="rgba(0,255,0,0.12)",
+        stroke_color="green",
+        fill_color="rgba(0,255,0,0.2)",
         drawing_mode="rect",
         height=img.height,
         width=img.width,
-        key=f"canvas_{i}",
+        key=f"roi_{i}",
     )
+    if canvas.json_data and canvas.json_data.get("objects"):
+        r = canvas.json_data["objects"][-1]
+        roi = (
+            r["left"],
+            r["top"],
+            r["left"] + r["width"] * r["scaleX"],
+            r["top"] + r["height"] * r["scaleY"],
+        )
 
-# =====================================================
-# NAVIGATION
-# =====================================================
+if decision == "Bad" and roi:
+    snap = create_snapshot(img, roi, "Defect")
+    st.image(snap, width=300)
+
+# ========== NAV ==========
 c1, c2 = st.columns(2)
 with c1:
-    if st.button("⬅ Previous") and i > 0:
-        st.session_state.image_index -= 1
+    if st.button("Previous") and i > 0:
+        st.session_state.index -= 1
         st.rerun()
-
 with c2:
-    if st.button("Next ➡") and i < len(images) - 1:
-        st.session_state.image_index += 1
+    if st.button("Next") and i < len(images)-1:
+        st.session_state.index += 1
         st.rerun()
 
-st.progress((i + 1) / len(images))
+st.progress((i+1)/len(images))
