@@ -511,6 +511,7 @@ if not existing.empty:
             safe_rerun()
 
         if st.button("Start fresh"):
+            if st.button("Resume"):
             st.session_state.resume_loaded = True
             safe_rerun()
 else:
