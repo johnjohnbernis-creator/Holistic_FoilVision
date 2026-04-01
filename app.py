@@ -246,4 +246,3 @@ with c2:
         st.rerun()
 
 st.progress((i + 1) / len(images))
-``
