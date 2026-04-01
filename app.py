@@ -250,14 +250,13 @@ def build_defect_color_map(defects_df) -> dict:
             m[d] = deterministic_color(d)
     return m
 
-
 # -----------------------
 # Snapshot creation
 # -----------------------
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
-def create_snapshot(img, crop_box_xyxy, color_hex: str, label: str) -> Image.Image:
+def create_snapshot(img: Image.Image, crop_box_xyxy, color_hex: str, label: str) -> Image.Image:
     x1, y1, x2, y2 = crop_box_xyxy
     w, h = img.size
     x1 = clamp(int(round(x1)), 0, w - 1)
